@@ -6,7 +6,7 @@ import (
 
 	"github.com/savsgio/atreugo/v11"
 
-	pb "logger/data/proto"
+	pb "logger/model/proto"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 
