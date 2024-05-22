@@ -33,7 +33,7 @@ func TestAllOptionSet(t *testing.T) {
 		Options.ReportBusy(true),
 		Options.BlockingSubmit(true),
 		Options.ExtraFormatTypes(types),
-		Options.SpanFilter(func(span *model.LogRecord) bool { return true }),
+		Options.LogFilter(func(span *model.LogRecord) bool { return true }),
 		Options.HostMetrics(metrics.NullFactory),
 		Options.ServiceMetrics(metrics.NullFactory),
 		Options.Logger(zap.NewNop()),
@@ -66,7 +66,7 @@ func TestNoOptionsSet(t *testing.T) {
 	assert.False(t, opts.blockingSubmit)
 	assert.NotPanics(t, func() { opts.preProcessSpans(nil, "") })
 	assert.NotPanics(t, func() { opts.preSave(nil, "") })
-	assert.True(t, opts.spanFilter(nil))
+	assert.True(t, opts.logFilter(nil))
 	// log := model.LogRecord{}
 	// assert.EqualValues(t, &span, opts.sanitizer(&span))
 	assert.EqualValues(t, 0, opts.dynQueueSizeWarmup)

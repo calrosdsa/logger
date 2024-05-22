@@ -41,22 +41,22 @@ const (
 	concatenation = "$_$"
 )
 
-var otherServicesSamplers map[model.SamplerType]string = initOtherServicesSamplers()
+// var otherServicesSamplers map[model.SamplerType]string = initOtherServicesSamplers()
 
-func initOtherServicesSamplers() map[model.SamplerType]string {
-	samplers := []model.SamplerType{
-		model.SamplerTypeUnrecognized,
-		model.SamplerTypeProbabilistic,
-		model.SamplerTypeLowerBound,
-		model.SamplerTypeRateLimiting,
-		model.SamplerTypeConst,
-	}
-	m := make(map[model.SamplerType]string)
-	for _, s := range samplers {
-		m[s] = otherServices + concatenation + s.String()
-	}
-	return m
-}
+// func initOtherServicesSamplers() map[model.SamplerType]string {
+// 	samplers := []model.SamplerType{
+// 		model.SamplerTypeUnrecognized,
+// 		model.SamplerTypeProbabilistic,
+// 		model.SamplerTypeLowerBound,
+// 		model.SamplerTypeRateLimiting,
+// 		model.SamplerTypeConst,
+// 	}
+// 	m := make(map[model.SamplerType]string)
+// 	for _, s := range samplers {
+// 		m[s] = otherServices + concatenation + s.String()
+// 	}
+// 	return m
+// }
 
 // SpanProcessorMetrics contains all the necessary metrics for the SpanProcessor
 type SpanProcessorMetrics struct {
@@ -106,7 +106,7 @@ type metricsBySvc struct {
 }
 
 // SpanCountsByFormat groups metrics by different span formats (thrift, proto, etc.)
-type SpanCountsByFormat map[processor.SpanFormat]SpanCountsByTransport
+type SpanCountsByFormat map[processor.LogFormat]SpanCountsByTransport
 
 // SpanCountsByTransport groups metrics by inbound transport (e.g http, grpc, tchannel)
 type SpanCountsByTransport map[processor.InboundTransport]SpanCounts
@@ -120,10 +120,10 @@ type SpanCounts struct {
 }
 
 // NewSpanProcessorMetrics returns a SpanProcessorMetrics
-func NewLogProcessorMetrics(serviceMetrics metrics.Factory, hostMetrics metrics.Factory, otherFormatTypes []processor.SpanFormat) *SpanProcessorMetrics {
+func NewLogProcessorMetrics(serviceMetrics metrics.Factory, hostMetrics metrics.Factory, otherFormatTypes []processor.LogFormat) *SpanProcessorMetrics {
 	spanCounts := SpanCountsByFormat{
-		processor.ProtoSpanFormat:   newCountsByTransport(serviceMetrics, processor.ProtoSpanFormat),
-		processor.UnknownSpanFormat: newCountsByTransport(serviceMetrics, processor.UnknownSpanFormat),
+		processor.ProtoLogFormat:   newCountsByTransport(serviceMetrics, processor.ProtoLogFormat),
+		processor.UnknownLogFormat: newCountsByTransport(serviceMetrics, processor.UnknownLogFormat),
 	}
 	for _, otherFormatType := range otherFormatTypes {
 		spanCounts[otherFormatType] = newCountsByTransport(serviceMetrics, otherFormatType)
@@ -155,14 +155,15 @@ func newMetricsBySvc(factory metrics.Factory, category string) metricsBySvc {
 }
 
 func newTraceCountsBySvc(factory metrics.Factory, category string, maxServices int) traceCountsBySvc {
-	extraSlotsForOtherServicesSamples := len(otherServicesSamplers) - 1 // excluding UnrecognizedSampler
+	// extraSlotsForOtherServicesSamples := len(otherServicesSamplers) - 1 // excluding UnrecognizedSampler
 	return traceCountsBySvc{
 		countsBySvc: countsBySvc{
 			counts:          newTraceCountsOtherServices(factory, category, "false"),
 			debugCounts:     newTraceCountsOtherServices(factory, category, "true"),
 			factory:         factory,
 			lock:            &sync.Mutex{},
-			maxServiceNames: maxServices + extraSlotsForOtherServicesSamples,
+			// maxServiceNames: maxServices + extraSlotsForOtherServicesSamples,
+			maxServiceNames: maxServices ,
 			category:        category,
 		},
 		// use sync.Pool to reduce allocation of stringBuilder
@@ -176,17 +177,17 @@ func newTraceCountsBySvc(factory metrics.Factory, category string, maxServices i
 
 func newTraceCountsOtherServices(factory metrics.Factory, category string, isDebug string) map[string]metrics.Counter {
 	m := make(map[string]metrics.Counter)
-	for kSampler, vString := range otherServicesSamplers {
-		m[vString] = factory.Counter(
-			metrics.Options{
-				Name: category,
-				Tags: map[string]string{
-					"svc":          otherServices,
-					"debug":        isDebug,
-					samplerTypeKey: kSampler.String(),
-				},
-			})
-	}
+	// for kSampler, vString := range otherServicesSamplers {
+	// 	m[vString] = factory.Counter(
+	// 		metrics.Options{
+	// 			Name: category,
+	// 			Tags: map[string]string{
+	// 				"svc":          otherServices,
+	// 				"debug":        isDebug,
+	// 				samplerTypeKey: kSampler.String(),
+	// 			},
+	// 		})
+	// }
 	return m
 }
 
@@ -203,7 +204,7 @@ func newSpanCountsBySvc(factory metrics.Factory, category string, maxServiceName
 	}
 }
 
-func newCountsByTransport(factory metrics.Factory, format processor.SpanFormat) SpanCountsByTransport {
+func newCountsByTransport(factory metrics.Factory, format processor.LogFormat) SpanCountsByTransport {
 	factory = factory.Namespace(metrics.NSOptions{Tags: map[string]string{"format": string(format)}})
 	return SpanCountsByTransport{
 		processor.HTTPTransport:    newCounts(factory, processor.HTTPTransport),
@@ -221,10 +222,10 @@ func newCounts(factory metrics.Factory, transport processor.InboundTransport) Sp
 }
 
 // GetCountsForFormat gets the SpanCounts for a given format and transport. If none exists, we use the Unknown format.
-func (m *SpanProcessorMetrics) GetCountsForFormat(spanFormat processor.SpanFormat, transport processor.InboundTransport) SpanCounts {
+func (m *SpanProcessorMetrics) GetCountsForFormat(spanFormat processor.LogFormat, transport processor.InboundTransport) SpanCounts {
 	c, ok := m.spanCounts[spanFormat]
 	if !ok {
-		c = m.spanCounts[processor.UnknownSpanFormat]
+		c = m.spanCounts[processor.UnknownLogFormat]
 	}
 	t, ok := c[transport]
 	if !ok {
@@ -235,19 +236,19 @@ func (m *SpanProcessorMetrics) GetCountsForFormat(spanFormat processor.SpanForma
 
 // reportServiceNameForSpan determines the name of the service that emitted
 // the span and reports a counter stat.
-func (m metricsBySvc) ReportServiceNameForSpan(span *model.Span) {
-	var serviceName string
-	if nil == span.Process || len(span.Process.ServiceName) == 0 {
-		serviceName = "__unknown"
-	} else {
-		serviceName = span.Process.ServiceName
-	}
+func (m metricsBySvc) ReportServiceNameForSpan(span *model.LogRecord) {
+	// var serviceName string
+	// if nil == span.Process || len(span.Process.ServiceName) == 0 {
+	// 	serviceName = "__unknown"
+	// } else {
+	// 	serviceName = span.Process.ServiceName
+	// }
 
-	m.countSpansByServiceName(serviceName, span.Flags.IsDebug())
-	if span.ParentSpanID() == 0 {
-		m.countTracesByServiceName(serviceName, span.Flags.IsDebug(), span.
-			GetSamplerType())
-	}
+	// m.countSpansByServiceName(serviceName, span.Flags.IsDebug())
+	// if span.ParentSpanID() == 0 {
+	// 	m.countTracesByServiceName(serviceName, span.Flags.IsDebug(), span.
+	// 		GetSamplerType())
+	// }
 }
 
 // countSpansByServiceName counts how many spans are received per service.
@@ -257,8 +258,8 @@ func (m metricsBySvc) countSpansByServiceName(serviceName string, isDebug bool) 
 
 // countTracesByServiceName counts how many traces are received per service,
 // i.e. the counter is only incremented for the root spans.
-func (m metricsBySvc) countTracesByServiceName(serviceName string, isDebug bool, samplerType model.SamplerType) {
-	m.traces.countByServiceName(serviceName, isDebug, samplerType)
+func (m metricsBySvc) countTracesByServiceName(serviceName string, isDebug bool) {
+	m.traces.countByServiceName(serviceName, isDebug)
 }
 
 // traceCountsBySvc.countByServiceName maintains a map of counters for each service name it's
@@ -271,40 +272,40 @@ func (m metricsBySvc) countTracesByServiceName(serviceName string, isDebug bool,
 // total number of stored counters, so if it exceeds say the 90% threshold
 // an alert should be raised to investigate what's causing so many unique
 // service names.
-func (m *traceCountsBySvc) countByServiceName(serviceName string, isDebug bool, samplerType model.SamplerType) {
-	serviceName = normalizer.ServiceName(serviceName)
-	counts := m.counts
-	if isDebug {
-		counts = m.debugCounts
-	}
-	var counter metrics.Counter
-	m.lock.Lock()
+func (m *traceCountsBySvc) countByServiceName(serviceName string, isDebug bool) {
+	// serviceName = normalizer.ServiceName(serviceName)
+	// counts := m.counts
+	// if isDebug {
+	// 	counts = m.debugCounts
+	// }
+	// var counter metrics.Counter
+	// m.lock.Lock()
 
-	// trace counter key is combination of serviceName and samplerType.
-	key := m.buildKey(serviceName, samplerType.String())
+	// // trace counter key is combination of serviceName and samplerType.
+	// key := m.buildKey(serviceName, samplerType.String())
 
-	if c, ok := counts[key]; ok {
-		counter = c
-	} else if len(counts) < m.maxServiceNames {
-		debugStr := "false"
-		if isDebug {
-			debugStr = "true"
-		}
-		// Only trace metrics have samplerType tag
-		tags := map[string]string{"svc": serviceName, "debug": debugStr, samplerTypeKey: samplerType.String()}
+	// if c, ok := counts[key]; ok {
+	// 	counter = c
+	// } else if len(counts) < m.maxServiceNames {
+	// 	debugStr := "false"
+	// 	if isDebug {
+	// 		debugStr = "true"
+	// 	}
+	// 	// Only trace metrics have samplerType tag
+	// 	tags := map[string]string{"svc": serviceName, "debug": debugStr, samplerTypeKey: samplerType.String()}
 
-		c := m.factory.Counter(metrics.Options{Name: m.category, Tags: tags})
-		counts[key] = c
-		counter = c
-	} else {
-		otherServicesSampler, ok := otherServicesSamplers[samplerType]
-		if !ok {
-			otherServicesSampler = otherServicesSamplers[model.SamplerTypeUnrecognized]
-		}
-		counter = counts[otherServicesSampler]
-	}
-	m.lock.Unlock()
-	counter.Inc(1)
+	// 	c := m.factory.Counter(metrics.Options{Name: m.category, Tags: tags})
+	// 	counts[key] = c
+	// 	counter = c
+	// } else {
+	// 	otherServicesSampler, ok := otherServicesSamplers[samplerType]
+	// 	if !ok {
+	// 		otherServicesSampler = otherServicesSamplers[model.SamplerTypeUnrecognized]
+	// 	}
+	// 	counter = counts[otherServicesSampler]
+	// }
+	// m.lock.Unlock()
+	// counter.Inc(1)
 }
 
 // spanCountsBySvc.countByServiceName maintains a map of counters for each service name it's

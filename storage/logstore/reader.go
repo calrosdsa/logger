@@ -3,7 +3,7 @@ package logstore
 import (
 	"context"
 	"time"
-	"logger/model/proto"
+	"logger/model"
 
 )
 
@@ -11,7 +11,7 @@ import (
 
 type Reader interface {
 	GetServices(ctx context.Context) ([]string, error)
-	GetLogs(ctx context.Context) ([]proto.LogRecord,error)
+	GetLogs(ctx context.Context) ([]model.LogRecord,error)
 }
 
 // LogQueryParameters contains parameters of a log query.
@@ -24,4 +24,15 @@ type TraceQueryParameters struct {
 	NumTraces     int
 }
 
+// OperationQueryParameters contains parameters of query operations, empty spanKind means get operations for all kinds of span.
+type OperationQueryParameters struct {
+	ServiceName string
+	SpanKind    string
+}
+
+// Operation contains operation name and span kind
+type Operation struct {
+	Name     string
+	SpanKind string
+}
 

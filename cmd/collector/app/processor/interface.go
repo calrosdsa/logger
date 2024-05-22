@@ -63,5 +63,5 @@ const (
 	// OTLPLogFormat is for OpenTelemetry OTLP format.
 	OTLPLogFormat LogFormat = "otlp"
 	// UnknownSpanFormat is the fallback/catch-all category.
-	// UnknownSpanFormat LogFormat = "unknown"
+	UnknownLogFormat LogFormat = "unknown"
 )

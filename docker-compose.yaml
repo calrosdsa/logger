@@ -11,6 +11,7 @@ services:
       - CASSANDRA_PASSWORD=admin
     volumes:
       - cassandra-data:/var/lib/cassandra
+      - ./db-schema:/docker-entrypoint-initdb.d/
 
 volumes:
   cassandra-data:

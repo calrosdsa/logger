@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"logger/plugin/storage/cassandra"
+	"logger/storage/logstore"
 	ls "logger/storage/logstore"
 )
 
@@ -78,9 +79,26 @@ func (f *Factory) getFactoryOfType(factoryType string) (storage.FactoryBase, err
 	}
 }
 
-func (f *Factory) Initialiace(metricFactory metrics.Factory, logger *zap.Logger) error {
+func (f *Factory) Initialize(metricsFactory metrics.Factory, logger *zap.Logger) error {
+	f.metricsFactory = metricsFactory
+	for _, factory := range f.factories {
+		if err := factory.Initialize(metricsFactory, logger); err != nil {
+			return err
+		}
+	}
+	// f.publishOpts()
+
 	return nil
 }
+
+// func (f *Factory) publishOpts() {
+// 	internalFactory := f.metricsFactory.Namespace(metrics.NSOptions{Name: "internal"})
+// 	internalFactory.Gauge(metrics.Options{Name: downsamplingRatio}).
+// 		Update(int64(f.FactoryConfig.DownsamplingRatio))
+// 	internalFactory.Gauge(metrics.Options{Name: spanStorageType + "-" + f.SpanReaderType}).
+// 		Update(1)
+// }
+
 
 func (f *Factory) Close() error {
 	return nil
@@ -90,7 +108,36 @@ func (f *Factory) CreateLogReader() (ls.Reader, error) {
 	return nil, nil
 }
 func (f *Factory) CreateLogWriter() (ls.Writer, error) {
-	return nil, nil
+	fmt.Println("CREATING LOG WRITER")
+	var writers []logstore.Writer
+	for _, storageType := range f.LogWriterTypes {
+		factory ,ok := f.factories[storageType]
+		if !ok {
+			return nil, fmt.Errorf("no %s backend registered for span store", storageType)
+		}
+		writer, err := factory.CreateLogWriter()
+		if err != nil {
+			return nil, err
+		}
+		writers = append(writers, writer)
+	}
+	var spanWriter logstore.Writer
+	if len(f.LogWriterTypes) == 1 {
+		spanWriter = writers[0]
+	} else {
+		fmt.Println("IS GREATER THAT 1")
+		// spanWriter = spanstore.NewCompositeWriter(writers...)
+	}
+	return spanWriter,nil
+	// Turn off DownsamplingWriter entirely if ratio == defaultDownsamplingRatio.
+	// if f.DownsamplingRatio == defaultDownsamplingRatio {
+	// 	return spanWriter, nil
+	// }
+	// return spanstore.NewDownsamplingWriter(spanWriter, spanstore.DownsamplingOptions{
+	// 	Ratio:          f.DownsamplingRatio,
+	// 	HashSalt:       f.DownsamplingHashSalt,
+	// 	MetricsFactory: f.metricsFactory.Namespace(metrics.NSOptions{Name: "downsampling_writer"}),
+	// }), nil
 }
 
 func (f *Factory) AddFlags(flagSet *flag.FlagSet) {

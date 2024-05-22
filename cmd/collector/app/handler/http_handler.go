@@ -15,28 +15,39 @@ import (
 	// "fmt"
 )
 
-type logHandler struct {
-	jaegerBatchesHandler BatchesHandler
+type APIHandler struct {
+	BatchesHandler BatchesHandler
 }
 
-func New(router *atreugo.Atreugo) {
-	handler := logHandler{}
-	router.POST("/v1/logs", handler.Logs)
+func NewAPIHandler(
+	BatchesHandler BatchesHandler,
+) *APIHandler {
+	return &APIHandler{
+		BatchesHandler: BatchesHandler,
+	}
 }
 
-func (h logHandler) Logs(c *atreugo.RequestCtx) (err error) {
+
+func (h *APIHandler)RegisterRoutes(router *atreugo.Atreugo) {
+	router.POST("/v1/logs", h.Logs)
+}
+
+
+func (h *APIHandler) Logs(c *atreugo.RequestCtx) (err error) {
 	fmt.Printf("FETCHING DATA ------------------")
 	var data pb.ExportLogsServiceRequest
 	err = proto.Unmarshal(c.PostBody(), &data)
 	if err != nil {
 		log.Fatalf("Failed to parse data: %v", err)
 	}
+	// log.Println(data.GetResourceLogs())
+	
 	batches := data.GetResourceLogs()
 	opts := SubmitBatchOptions{InboundTransport: processor.HTTPTransport}
-	if _, err = h.jaegerBatchesHandler.SubmitBatches(batches, opts); err != nil {
+	if _, err = h.BatchesHandler.SubmitBatches(batches, opts); err != nil {
 		return c.JSONResponse("ERROR", http.StatusBadRequest)
 	}
 
-	fmt.Printf("Scheme URL: %s\n", data.GetResourceLogs())
+	// fmt.Printf("Scheme URL: %s\n", data.GetResourceLogs())
 	return c.JSONResponse("SUCESS", http.StatusOK)
 }

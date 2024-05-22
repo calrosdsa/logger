@@ -33,7 +33,7 @@ type options struct {
 	preProcessSpans ProcessLogs // see docs in PreProcessSpans option.
 	sanitizer              sanitizer.SanitizeSpan
 	preSave                ProcessLog
-	spanFilter             FilterLog
+	logFilter             FilterLog
 	numWorkers             int
 	blockingSubmit         bool
 	queueSize              int
@@ -96,10 +96,10 @@ func (options) PreSave(preSave ProcessLog) Option {
 	}
 }
 
-// SpanFilter creates an Option that initializes the spanFilter function
-func (options) SpanFilter(spanFilter FilterLog) Option {
+// LogFilter creates an Option that initializes the logFilter function
+func (options) LogFilter(logFilter FilterLog) Option {
 	return func(b *options) {
-		b.spanFilter = spanFilter
+		b.logFilter = logFilter
 	}
 }
 
@@ -196,8 +196,8 @@ func (o options) apply(opts ...Option) options {
 	if ret.preSave == nil {
 		ret.preSave = func(span *model.LogRecord, tenant string) {}
 	}
-	if ret.spanFilter == nil {
-		ret.spanFilter = func(span *model.LogRecord) bool { return true }
+	if ret.logFilter == nil {
+		ret.logFilter = func(span *model.LogRecord) bool { return true }
 	}
 	if ret.numWorkers == 0 {
 		ret.numWorkers = flags.DefaultNumWorkers

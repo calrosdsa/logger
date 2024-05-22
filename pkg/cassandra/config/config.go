@@ -88,6 +88,13 @@ func (c *Configuration) ApplyDefaults(source *Configuration) {
 	}
 }
 
+// type sessionBuilder struct {}
+
+// func NewSessionBuilder() SessionBuilder {
+// 	return &sessionBuilder{}
+// }
+
+
 // SessionBuilder creates new cassandra.Session
 type SessionBuilder interface {
 	NewSession(logger *zap.Logger) (cassandra.Session, error)
@@ -95,10 +102,12 @@ type SessionBuilder interface {
 
 // NewSession creates a new Cassandra session
 func (c *Configuration) NewSession(logger *zap.Logger) (cassandra.Session, error) {
+	fmt.Println("CREATING CLUSTER")
 	cluster, err := c.NewCluster(logger)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("CREATING SESSION")
 	session, err := cluster.CreateSession()
 	if err != nil {
 		return nil, err
@@ -110,36 +119,36 @@ func (c *Configuration) NewSession(logger *zap.Logger) (cassandra.Session, error
 func (c *Configuration) NewCluster(logger *zap.Logger) (*gocql.ClusterConfig, error) {
 	cluster := gocql.NewCluster(c.Servers...)
 	cluster.Keyspace = c.Keyspace
-	cluster.NumConns = c.ConnectionsPerHost
-	cluster.Timeout = c.Timeout
-	cluster.ConnectTimeout = c.ConnectTimeout
-	cluster.ReconnectInterval = c.ReconnectInterval
-	cluster.SocketKeepalive = c.SocketKeepAlive
-	if c.ProtoVersion > 0 {
-		cluster.ProtoVersion = c.ProtoVersion
-	}
-	if c.MaxRetryAttempts > 1 {
-		cluster.RetryPolicy = &gocql.SimpleRetryPolicy{NumRetries: c.MaxRetryAttempts - 1}
-	}
+	// cluster.NumConns = c.ConnectionsPerHost
+	// cluster.Timeout = c.Timeout
+	// cluster.ConnectTimeout = c.ConnectTimeout
+	// cluster.ReconnectInterval = c.ReconnectInterval
+	// cluster.SocketKeepalive = c.SocketKeepAlive
+	// if c.ProtoVersion > 0 {
+	// 	cluster.ProtoVersion = c.ProtoVersion
+	// }
+	// if c.MaxRetryAttempts > 1 {
+	// 	cluster.RetryPolicy = &gocql.SimpleRetryPolicy{NumRetries: c.MaxRetryAttempts - 1}
+	// }
 	if c.Port != 0 {
 		cluster.Port = c.Port
 	}
 
-	if !c.DisableCompression {
-		cluster.Compressor = gocql.SnappyCompressor{}
-	}
+	// if !c.DisableCompression {
+	// 	cluster.Compressor = gocql.SnappyCompressor{}
+	// }
 
-	if c.Consistency == "" {
-		cluster.Consistency = gocql.LocalOne
-	} else {
-		cluster.Consistency = gocql.ParseConsistency(c.Consistency)
-	}
+	// if c.Consistency == "" {
+	// 	cluster.Consistency = gocql.LocalOne
+	// } else {
+	// 	cluster.Consistency = gocql.ParseConsistency(c.Consistency)
+	// }
 
-	fallbackHostSelectionPolicy := gocql.RoundRobinHostPolicy()
-	if c.LocalDC != "" {
-		fallbackHostSelectionPolicy = gocql.DCAwareRoundRobinPolicy(c.LocalDC)
-	}
-	cluster.PoolConfig.HostSelectionPolicy = gocql.TokenAwareHostPolicy(fallbackHostSelectionPolicy, gocql.ShuffleReplicas())
+	// fallbackHostSelectionPolicy := gocql.RoundRobinHostPolicy()
+	// if c.LocalDC != "" {
+	// 	fallbackHostSelectionPolicy = gocql.DCAwareRoundRobinPolicy(c.LocalDC)
+	// }
+	// cluster.PoolConfig.HostSelectionPolicy = gocql.TokenAwareHostPolicy(fallbackHostSelectionPolicy, gocql.ShuffleReplicas())
 
 	if c.Authenticator.Basic.Username != "" && c.Authenticator.Basic.Password != "" {
 		cluster.Authenticator = gocql.PasswordAuthenticator{
@@ -147,20 +156,20 @@ func (c *Configuration) NewCluster(logger *zap.Logger) (*gocql.ClusterConfig, er
 			Password: c.Authenticator.Basic.Password,
 		}
 	}
-	tlsCfg, err := c.TLS.Config(logger)
-	if err != nil {
-		return nil, err
-	}
-	if c.TLS.Enabled {
-		cluster.SslOpts = &gocql.SslOptions{
-			Config: tlsCfg,
-		}
-	}
+	// tlsCfg, err := c.TLS.Config(logger)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// if c.TLS.Enabled {
+	// 	cluster.SslOpts = &gocql.SslOptions{
+	// 		Config: tlsCfg,
+	// 	}
+	// }
 	// If tunneling connection to C*, disable cluster autodiscovery features.
-	if c.DisableAutoDiscovery {
-		cluster.DisableInitialHostLookup = true
-		cluster.IgnorePeerAddr = true
-	}
+	// if c.DisableAutoDiscovery {
+	// 	cluster.DisableInitialHostLookup = true
+	// 	cluster.IgnorePeerAddr = true
+	// }
 	return cluster, nil
 }
 

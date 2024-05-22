@@ -11,6 +11,8 @@ import (
 	"logger/pkg/metrics"
 	"logger/pkg/tenancy"
 
+	"logger/model"
+
 	"go.uber.org/zap"
 )
 
@@ -30,7 +32,30 @@ func (b *LogHandlerBuilder) BuildLogProcessor(additional ...ProcessLog) processo
 	hostname,_ := os.Hostname()
 	svcMetrics := b.metricsFactory()
 	hostMetrics := svcMetrics.Namespace(metrics.NSOptions{Tags: map[string]string{"host": hostname}})
-	return NewSpan
+	return NewSpanProcessor(
+		b.LogWriter,
+		additional,
+		Options.ServiceMetrics(svcMetrics),
+		Options.HostMetrics(hostMetrics),
+		Options.Logger(b.logger()),
+		Options.LogFilter(defaultLogFilter),
+		Options.NumWorkers(b.CollectorOpts.NumWorkers),
+		Options.QueueSize(b.CollectorOpts.QueueSize),
+		Options.CollectorTags(b.CollectorOpts.CollectorTags),
+		Options.DynQueueSizeWarmup(uint(b.CollectorOpts.QueueSize)), // same as queue size for now
+		Options.DynQueueSizeMemory(b.CollectorOpts.DynQueueSizeMemory),
+		Options.SpanSizeMetricsEnabled(b.CollectorOpts.SpanSizeMetricsEnabled),
+	)
+}
+
+func (b *LogHandlerBuilder) BuildHandlers(spanProcessor processor.LogProcessor) *LogHandlers {
+	return &LogHandlers{
+		handler.NewLogHandler(b.Logger, spanProcessor),
+	}
+}
+
+func defaultLogFilter(*model.LogRecord) bool {
+	return true
 }
 
 func (b *LogHandlerBuilder) logger() *zap.Logger {

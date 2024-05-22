@@ -17,6 +17,8 @@ package app
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -27,6 +29,7 @@ import (
 	"logger/cmd/collector/app/sanitizer"
 	"logger/model"
 	"logger/pkg/queue"
+
 	"logger/pkg/tenancy"
 	"logger/storage/logstore"
 )
@@ -42,7 +45,7 @@ const (
 type logProcessor struct {
 	queue              *queue.BoundedQueue
 	queueResizeMu      sync.Mutex
-	metrics            *SpanProcessorMetrics
+	// metrics            *SpanProcessorMetrics
 	preProcessSpans    ProcessLogs
 	filterSpan         FilterLog             // filter is called before the sanitizer but after preProcessSpans
 	sanitizer          sanitizer.SanitizeSpan // sanitizer is called before processSpan
@@ -73,17 +76,17 @@ func NewSpanProcessor(
 	opts ...Option,
 ) processor.LogProcessor {
 	sp := newLogProcessor(logWriter, additional, opts...)
-
+	log.Println("LOGPROCESSOR",sp)
 	sp.queue.StartConsumers(sp.numWorkers, func(item interface{}) {
 		value := item.(*queueItem)
 		sp.processItemFromQueue(value)
 	})
 
-	sp.background(1*time.Second, sp.updateGauges)
+	// sp.background(1*time.Second, sp.updateGauges)
 
-	if sp.dynQueueSizeMemory > 0 {
-		sp.background(1*time.Minute, sp.updateQueueSize)
-	}
+	// if sp.dynQueueSizeMemory > 0 {
+	// 	sp.background(1*time.Minute, sp.updateQueueSize)
+	// }
 
 	return sp
 }
@@ -109,10 +112,10 @@ func newLogProcessor(logWriter logstore.Writer, additional []ProcessLog, opts ..
 
 	sp := logProcessor{
 		queue:              boundedQueue,
-		metrics:            handlerMetrics,
+		// metrics:            handlerMetrics,
 		logger:             options.logger,
 		preProcessSpans:    options.preProcessSpans,
-		filterSpan:         options.spanFilter,
+		filterSpan:         options.logFilter,
 		sanitizer:          sanitizer.NewChainedSanitizer(sanitizers...),
 		reportBusy:         options.reportBusy,
 		numWorkers:         options.numWorkers,
@@ -123,7 +126,7 @@ func newLogProcessor(logWriter logstore.Writer, additional []ProcessLog, opts ..
 		dynQueueSizeWarmup: options.dynQueueSizeWarmup,
 	}
 
-	processLogFuncs := []ProcessLog{options.preSave, sp.saveSpan}
+	processLogFuncs := []ProcessLog{options.preSave, sp.saveLog}
 	if options.dynQueueSizeMemory > 0 {
 		options.logger.Info("Dynamically adjusting the queue size at runtime.",
 			zap.Uint("memory-mib", options.dynQueueSizeMemory/1024/1024),
@@ -147,27 +150,23 @@ func (sp *logProcessor) Close() error {
 	return nil
 }
 
-func (sp *logProcessor) saveSpan(log *model.LogRecord, tenant string) {
+func (sp *logProcessor) saveLog(log *model.LogRecord, tenant string) {
 	if nil == log.Process {
 		sp.logger.Error("process is empty for the log")
-		sp.metrics.SavedErrBySvc.ReportServiceNameForSpan(log)
 		return
 	}
+	fmt.Println("SAVE LOG",log)
 
-	startTime := time.Now()
-	// Since we save spans asynchronously from receiving them, we cannot reuse
-	// the inbound Context, as it may be cancelled by the time we reach this point,
-	// so we need to start a new Context.
 	ctx := tenancy.WithTenant(context.Background(), tenant)
-	if err := sp.logWriter.WriteLog(ctx, log); err != nil {
+	if err := sp.logWriter.WriteLog(ctx,log);err != nil {
 		sp.logger.Error("Failed to save log", zap.Error(err))
-		sp.metrics.SavedErrBySvc.ReportServiceNameForSpan(log)
-	} else {
-		sp.logger.Debug("LogRecord written to the storage by the collector")
-			// zap.Stringer("trace-id", string(log.TraceId)), zap.Stringer("log-id", log.SpanID))
-		sp.metrics.SavedOkBySvc.ReportServiceNameForSpan(log)
 	}
-	sp.metrics.SaveLatency.Record(time.Since(startTime))
+	// if err := sp.logWriter.WriteLog(ctx, log); err != nil {
+	// 	sp.logger.Error("Failed to save log", zap.Error(err))
+	// 	// sp.metrics.SavedErrBySvc.ReportServiceNameForSpan(log)
+	// } else {
+	// 	sp.logger.Debug("LogRecord written to the storage by the collector")
+	// }
 }
 
 func (sp *logProcessor) countSpan(log *model.LogRecord, tenant string) {
@@ -177,7 +176,7 @@ func (sp *logProcessor) countSpan(log *model.LogRecord, tenant string) {
 
 func (sp *logProcessor) ProcessLogs(mSpans []*model.LogRecord, options processor.LogOptions) ([]bool, error) {
 	sp.preProcessSpans(mSpans, options.Tenant)
-	sp.metrics.BatchSize.Update(int64(len(mSpans)))
+	// sp.metrics.BatchSize.Update(int64(len(mSpans)))
 	retMe := make([]bool, len(mSpans))
 
 	// Note: this is not the ideal place to do this because collector tags are added to Process.Tags,
@@ -201,43 +200,44 @@ func (sp *logProcessor) ProcessLogs(mSpans []*model.LogRecord, options processor
 
 func (sp *logProcessor) processItemFromQueue(item *queueItem) {
 	sp.processSpan(sp.sanitizer(item.span), item.tenant)
-	sp.metrics.InQueueLatency.Record(time.Since(item.queuedTime))
+	// sp.metrics.InQueueLatency.Record(time.Since(item.queuedTime))
 }
 
 func (sp *logProcessor) addCollectorTags(span *model.LogRecord) {
 	if len(sp.collectorTags) == 0 {
 		return
 	}
-	dedupKey := make(map[string]struct{})
-	for _, tag := range span.Process.Tags {
-		if value, ok := sp.collectorTags[tag.Key]; ok && value == tag.AsString() {
-			sp.logger.Debug("ignore collector process tags", zap.String("key", tag.Key), zap.String("value", value))
-			dedupKey[tag.Key] = struct{}{}
-		}
-	}
+	// dedupKey := make(map[string]struct{})
+	// for _, tag := range span.Process.Tags {
+	// 	if value, ok := sp.collectorTags[tag.Key]; ok && value == tag.AsString() {
+	// 		sp.logger.Debug("ignore collector process tags", zap.String("key", tag.Key), zap.String("value", value))
+	// 		dedupKey[tag.Key] = struct{}{}
+	// 	}
+	// }
+
 	// ignore collector tags if has the same key-value in spans
-	for k, v := range sp.collectorTags {
-		if _, ok := dedupKey[k]; !ok {
-			span.Process.Tags = append(span.Process.Tags, model.String(k, v))
-		}
-	}
-	typedTags := model.KeyValues(span.Process.Tags)
-	typedTags.Sort()
+	// for k, v := range sp.collectorTags {
+	// 	if _, ok := dedupKey[k]; !ok {
+	// 		span.Process.Tags = append(span.Process.Tags, model.String(k, v))
+	// 	}
+	// }
+	// typedTags := model.KeyValues(span.Process.Tags)
+	// typedTags.Sort()
 }
 
 // Note: spans may share the Process object, so no changes should be made to Process
 // in this function as it may cause race conditions.
 func (sp *logProcessor) enqueueSpan(span *model.LogRecord, originalFormat processor.LogFormat, transport processor.InboundTransport, tenant string) bool {
-	spanCounts := sp.metrics.GetCountsForFormat(originalFormat, transport)
-	spanCounts.ReceivedBySvc.ReportServiceNameForSpan(span)
+	// spanCounts := sp.metrics.GetCountsForFormat(originalFormat, transport)
+	// spanCounts.ReceivedBySvc.ReportServiceNameForSpan(span)
 
-	if !sp.filterSpan(span) {
-		spanCounts.RejectedBySvc.ReportServiceNameForSpan(span)
-		return true // as in "not dropped", because it's actively rejected
-	}
+	// if !sp.filterSpan(span) {
+	// 	spanCounts.RejectedBySvc.ReportServiceNameForSpan(span)
+	// 	return true // as in "not dropped", because it's actively rejected
+	// }
 
 	// add format tag
-	span.Tags = append(span.Tags, model.String("internal.span.format", string(originalFormat)))
+	// span.Tags = append(span.Tags, model.String("internal.span.format", string(originalFormat)))
 
 	item := &queueItem{
 		queuedTime: time.Now(),
@@ -306,7 +306,7 @@ func (sp *logProcessor) updateQueueSize() {
 }
 
 func (sp *logProcessor) updateGauges() {
-	sp.metrics.SpansBytes.Update(int64(sp.bytesProcessed.Load()))
-	sp.metrics.QueueLength.Update(int64(sp.queue.Size()))
-	sp.metrics.QueueCapacity.Update(int64(sp.queue.Capacity()))
+	// sp.metrics.SpansBytes.Update(int64(sp.bytesProcessed.Load()))
+	// sp.metrics.QueueLength.Update(int64(sp.queue.Size()))
+	// sp.metrics.QueueCapacity.Update(int64(sp.queue.Capacity()))
 }

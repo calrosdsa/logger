@@ -1,11 +1,12 @@
 package handler
 
 import (
+	"log"
 	"logger/cmd/collector/app/processor"
 	"logger/model"
-	pb "logger/model/proto/v1"
-	pbL "logger/model/proto/logs/v1"
 	pbC "logger/model/proto/common/v1"
+	pbL "logger/model/proto/logs/v1"
+	pb "logger/model/proto/v1"
 
 	pConv "logger/model/converter/proto"
 
@@ -41,7 +42,7 @@ type batchesHandler struct {
 }
 
 // NewJaegerSpanHandler returns a JaegerBatchesHandler
-func NewJaegerLogHandler(logger *zap.Logger, modelProcessor processor.LogProcessor) BatchesHandler {
+func NewLogHandler(logger *zap.Logger, modelProcessor processor.LogProcessor) BatchesHandler {
 	return &batchesHandler{
 		logger:         logger,
 		modelProcessor: modelProcessor,
@@ -49,6 +50,7 @@ func NewJaegerLogHandler(logger *zap.Logger, modelProcessor processor.LogProcess
 }
 
 func (h *batchesHandler) SubmitBatches(batches []*pbL.ResourceLogs, opts SubmitBatchOptions) ([]*BatchSubmitResponse, error) {
+	log.Println("SubmitBatches ------------------------------------",h.modelProcessor)
 	responses := make([]*BatchSubmitResponse, 0, len(batches))
 	for _, batch := range batches {
 		proccess := h.getProcess(batch)
@@ -58,10 +60,12 @@ func (h *batchesHandler) SubmitBatches(batches []*pbL.ResourceLogs, opts SubmitB
 			for _, log := range scopeLog.GetLogRecords() {
 				mLogs = append(mLogs, pConv.ToDomainLog(log, proccess))
 			}
+	         log.Println("ProcessLogs ------------------------------------ 1")
 			oks, err := h.modelProcessor.ProcessLogs(mLogs, processor.LogOptions{
 				InboundTransport: opts.InboundTransport,
 				LogFormat:        processor.OTLPLogFormat,
 			})
+			log.Println("ProcessLogs ------------------------------------ 2")
 
 			if err != nil {
 				h.logger.Error("Collector failed to process span batch", zap.Error(err))
