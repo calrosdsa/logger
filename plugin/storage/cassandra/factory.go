@@ -49,13 +49,13 @@ type Factory struct {
 
 func NewFactory() *Factory {
 	cs := config.Configuration{
-		Servers: []string{"localhost"},
+		Servers: []string{"127.0.0.1"},
 		Port: 9042,
-		Keyspace: "kspace",
+		Keyspace: "loggerdb",
 		Authenticator: config.Authenticator{
 			Basic: config.BasicAuthenticator{
-				Username: "admin",
-				Password: "admin",
+				Username: "cassandra",
+				Password: "cassandra",
 			},
 		},
 		

@@ -130,9 +130,9 @@ func (c *Configuration) NewCluster(logger *zap.Logger) (*gocql.ClusterConfig, er
 	// if c.MaxRetryAttempts > 1 {
 	// 	cluster.RetryPolicy = &gocql.SimpleRetryPolicy{NumRetries: c.MaxRetryAttempts - 1}
 	// }
-	if c.Port != 0 {
+	// if c.Port != 0 {
 		cluster.Port = c.Port
-	}
+	// }
 
 	// if !c.DisableCompression {
 	// 	cluster.Compressor = gocql.SnappyCompressor{}

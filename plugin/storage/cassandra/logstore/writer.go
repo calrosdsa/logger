@@ -18,11 +18,10 @@ import (
 )
 
 const (
-	insertSpan = `
+	insertLog = `
 		INSERT
-		INTO traces(trace_id, span_id, span_hash, parent_id, operation_name, flags,
-				    start_time, duration, tags, logs, refs, process)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		INTO logs(time_unix_nano,flags,observed_time_unix_nano,attributes,process)
+		VALUES (?, ?, ?,?,?)`
 
 	serviceNameIndex = `
 		INSERT
@@ -138,8 +137,29 @@ func (s *LogWriter) WriteLog(ctx context.Context, span *model.LogRecord) error {
 	return nil
 }
 
-func (s *LogWriter) writeSpan(span *model.LogRecord, ds *dbmodel.LogRecord) error {
-	fmt.Println("WRITE SPAN",span)
+func (s *LogWriter) writeSpan(log *model.LogRecord, ds *dbmodel.LogRecord) error {
+	fmt.Println("WRITE SPAN",log)
+	attributes := []dbmodel.KeyValue{
+		dbmodel.KeyValue{
+			Key: "name",
+			ValueType: "string",
+			ValueString: "value",
+		},
+	}
+	process := dbmodel.Process{
+		ServiceName: "logger.service",
+		Atributtes: attributes,
+	}
+
+	mainQuery := s.session.Query(
+		insertLog,
+		log.TimeUnixNano,
+		log.Flags,
+		log.ObservedTimeUnixNano,
+		attributes,
+		process,
+		// log.Process,
+	)
 	// mainQuery := s.session.Query(
 	// 	insertSpan,
 	// 	ds.TraceID,
@@ -155,6 +175,14 @@ func (s *LogWriter) writeSpan(span *model.LogRecord, ds *dbmodel.LogRecord) erro
 	// 	ds.Refs,
 	// 	ds.Process,
 	// )
+	err := mainQuery.Exec()
+	if err != nil {
+		queryString := mainQuery.String()
+		if s.logger != nil {
+			s.logger.Error("Failed to exec query", zap.String("query", queryString), zap.Error(err))
+		}
+	}
+
 	// if err := s.writerMetrics.traces.Exec(mainQuery, s.logger); err != nil {
 	// 	return s.logError(ds, err, "Failed to insert span", s.logger)
 	// }
