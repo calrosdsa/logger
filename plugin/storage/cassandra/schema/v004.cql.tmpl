@@ -41,12 +41,14 @@ CREATE TYPE IF NOT EXISTS ${keyspace}.process (
 -- Note: Cassandra re-orders non-PK columns alphabetically, so the table looks differently in CQLSH "describe table".
 -- start_time is bigint instead of timestamp as we require microsecond precision
 CREATE TABLE IF NOT EXISTS ${keyspace}.logs (
-    flags           int,
+    severity_number           int,
+    body text,
     time_unix_nano      bigint, -- microseconds since epoch
     observed_time_unix_nano        bigint, -- microseconds
     attributes            list<frozen<attribute>>,
+
     process         frozen<process>,
-    PRIMARY KEY (time_unix_nano)
+    PRIMARY KEY (time_unix_nano,severity_number)
 )
     WITH compaction = {
         'compaction_window_size': '${compaction_window_size}',

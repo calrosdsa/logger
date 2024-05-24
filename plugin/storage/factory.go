@@ -105,7 +105,11 @@ func (f *Factory) Close() error {
 }
 
 func (f *Factory) CreateLogReader() (ls.Reader, error) {
-	return nil, nil
+	factory,ok := f.factories[f.LogReaderType]
+	if !ok {
+		return nil, fmt.Errorf("no %s backend registered for span store", f.LogReaderType)
+	}
+	return factory.CreateLogReader()
 }
 func (f *Factory) CreateLogWriter() (ls.Writer, error) {
 	fmt.Println("CREATING LOG WRITER")

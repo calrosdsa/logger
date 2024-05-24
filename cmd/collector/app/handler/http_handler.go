@@ -6,7 +6,7 @@ import (
 
 	"github.com/savsgio/atreugo/v11"
 
-	"fmt"
+	// "fmt"
 	"logger/cmd/collector/app/processor"
 	pb "logger/model/proto/v1"
 
@@ -33,8 +33,9 @@ func (h *APIHandler)RegisterRoutes(router *atreugo.Atreugo) {
 }
 
 
+
+
 func (h *APIHandler) Logs(c *atreugo.RequestCtx) (err error) {
-	fmt.Printf("FETCHING DATA ------------------")
 	var data pb.ExportLogsServiceRequest
 	err = proto.Unmarshal(c.PostBody(), &data)
 	if err != nil {
@@ -43,6 +44,15 @@ func (h *APIHandler) Logs(c *atreugo.RequestCtx) (err error) {
 	// log.Println(data.GetResourceLogs())
 	
 	batches := data.GetResourceLogs()
+	// for _,b := range batches {
+	// 	for _,v := range b.ScopeLogs {
+	// 		for _,l := range v.LogRecords {
+	// 			l.Body.GetStringValue()
+	// 			fmt.Println("Number",l.SeverityNumber.Number(),
+	// 			"String",l.SeverityNumber.String())
+	// 		}
+	// 	}
+	// }
 	opts := SubmitBatchOptions{InboundTransport: processor.HTTPTransport}
 	if _, err = h.BatchesHandler.SubmitBatches(batches, opts); err != nil {
 		return c.JSONResponse("ERROR", http.StatusBadRequest)

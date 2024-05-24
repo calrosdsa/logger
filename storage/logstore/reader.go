@@ -10,8 +10,8 @@ import (
 
 
 type Reader interface {
-	GetServices(ctx context.Context) ([]string, error)
-	GetLogs(ctx context.Context) ([]model.LogRecord,error)
+	// GetServices(ctx context.Context) ([]string, error)
+	GetLogs(ctx context.Context) ([]*model.LogRecord,error)
 }
 
 // LogQueryParameters contains parameters of a log query.

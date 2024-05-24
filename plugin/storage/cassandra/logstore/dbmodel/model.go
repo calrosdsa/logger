@@ -19,9 +19,7 @@ import (
 	"bytes"
 	// "encoding/binary"
 
-	"logger/model"
-	common "logger/model/proto/common/v1"
-	logs "logger/model/proto/logs/v1"
+	// logs "logger/model/proto/logs/v1"
 )
 
 const (
@@ -43,15 +41,15 @@ type TraceID [16]byte
 type LogRecord struct {
 	TimeUnixNano           uint64              `protobuf:"fixed64,1,opt,name=time_unix_nano,json=timeUnixNano,proto3" json:"time_unix_nano,omitempty"`
 	ObservedTimeUnixNano   uint64              `protobuf:"fixed64,11,opt,name=observed_time_unix_nano,json=observedTimeUnixNano,proto3" json:"observed_time_unix_nano,omitempty"`
-	SeverityNumber         logs.SeverityNumber `protobuf:"varint,2,opt,name=severity_number,json=severityNumber,proto3,enum=opentelemetry.proto.logs.v1.SeverityNumber" json:"severity_number,omitempty"`
+	SeverityNumber         uint32 
 	SeverityText           string              `protobuf:"bytes,3,opt,name=severity_text,json=severityText,proto3" json:"severity_text,omitempty"`
-	Body                   *common.AnyValue    `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
-	Attributes             []*common.KeyValue  `protobuf:"bytes,6,rep,name=attributes,proto3" json:"attributes,omitempty"`
+	Body                   string              `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
+	Attributes             []KeyValue          `protobuf:"bytes,6,rep,name=attributes,proto3" json:"attributes,omitempty"`
 	DroppedAttributesCount uint32              `protobuf:"varint,7,opt,name=dropped_attributes_count,json=droppedAttributesCount,proto3" json:"dropped_attributes_count,omitempty"`
 	Flags                  uint32              `protobuf:"fixed32,8,opt,name=flags,proto3" json:"flags,omitempty"`
 	TraceId                []byte              `protobuf:"bytes,9,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
 	SpanId                 []byte              `protobuf:"bytes,10,opt,name=span_id,json=spanId,proto3" json:"span_id,omitempty"`
-	Process                *model.Process
+	Process                Process
 }
 
 // KeyValue is the UDT representation of a Jaeger KeyValue.

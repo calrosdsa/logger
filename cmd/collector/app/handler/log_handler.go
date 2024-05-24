@@ -4,7 +4,6 @@ import (
 	"log"
 	"logger/cmd/collector/app/processor"
 	"logger/model"
-	pbC "logger/model/proto/common/v1"
 	pbL "logger/model/proto/logs/v1"
 	pb "logger/model/proto/v1"
 
@@ -50,7 +49,7 @@ func NewLogHandler(logger *zap.Logger, modelProcessor processor.LogProcessor) Ba
 }
 
 func (h *batchesHandler) SubmitBatches(batches []*pbL.ResourceLogs, opts SubmitBatchOptions) ([]*BatchSubmitResponse, error) {
-	log.Println("SubmitBatches ------------------------------------",h.modelProcessor)
+	log.Println("SubmitBatches ------------------------------------", h.modelProcessor)
 	responses := make([]*BatchSubmitResponse, 0, len(batches))
 	for _, batch := range batches {
 		proccess := h.getProcess(batch)
@@ -60,14 +59,14 @@ func (h *batchesHandler) SubmitBatches(batches []*pbL.ResourceLogs, opts SubmitB
 			for _, log := range scopeLog.GetLogRecords() {
 				mLogs = append(mLogs, pConv.ToDomainLog(log, proccess))
 			}
-	         log.Println("ProcessLogs ------------------------------------ 1")
+			log.Println("ProcessLogs ------------------------------------ 1")
 			oks, err := h.modelProcessor.ProcessLogs(mLogs, processor.LogOptions{
 				InboundTransport: opts.InboundTransport,
 				LogFormat:        processor.OTLPLogFormat,
 			})
 			log.Println("ProcessLogs ------------------------------------ 2")
 
-			if err != nil {
+			if err != nil {	
 				h.logger.Error("Collector failed to process span batch", zap.Error(err))
 				return nil, err
 			}
@@ -95,20 +94,24 @@ func (h *batchesHandler) getProcess(r *pbL.ResourceLogs) *model.Process {
 	}
 	resources := r.GetResource()
 	var serviceName string
-	tags := make([]*pbC.KeyValue, 0, len(resources.GetAttributes()))
-
+	attributes := make([]model.KeyValue, 0, len(resources.GetAttributes()))
+	
 	for _, attr := range resources.GetAttributes() {
+		keyValue := model.KeyValue{
+			Key: attr.Key,
+			Value: attr.GetValue(),
+		}
 		if attr == nil {
 			continue
 		}
 		if attr.Key == "service.name" {
 			serviceName = attr.GetValue().GetStringValue()
 		} else {
-			tags = append(tags, attr)
+			attributes = append(attributes, keyValue)
 		}
 	}
 	return &model.Process{
 		ServiceName: serviceName,
-		Tags:        tags,
+		Attributes:  attributes,
 	}
 }

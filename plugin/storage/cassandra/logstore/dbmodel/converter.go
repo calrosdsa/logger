@@ -16,7 +16,12 @@
 package dbmodel
 
 import (
+	"fmt"
 	"logger/model"
+	common "logger/model/proto/common/v1"
+	logs "logger/model/proto/logs/v1"
+
+
 )
 
 const (
@@ -24,25 +29,25 @@ const (
 	warningStringPrefix = "$$span.warning."
 )
 
-// var (
-// 	dbToDomainRefMap = map[string]model.LogRecordRefType{
-// 		childOf:     model.LogRecordRefType_CHILD_OF,
-// 		followsFrom: model.LogRecordRefType_FOLLOWS_FROM,
-// 	}
+var (
+	// 	dbToDomainRefMap = map[string]model.LogRecordRefType{
+	// 		childOf:     model.LogRecordRefType_CHILD_OF,
+	// 		followsFrom: model.LogRecordRefType_FOLLOWS_FROM,
+	// 	}
 
-// 	domainToDBRefMap = map[model.LogRecordRefType]string{
-// 		model.LogRecordRefType_CHILD_OF:     childOf,
-// 		model.LogRecordRefType_FOLLOWS_FROM: followsFrom,
-// 	}
+	// 	domainToDBRefMap = map[model.LogRecordRefType]string{
+	// 		model.LogRecordRefType_CHILD_OF:     childOf,
+	// 		model.LogRecordRefType_FOLLOWS_FROM: followsFrom,
+	// 	}
 
-// 	domainToDBValueTypeMap = map[model.ValueType]string{
-// 		model.StringType:  stringType,
-// 		model.BoolType:    boolType,
-// 		model.Int64Type:   int64Type,
-// 		model.Float64Type: float64Type,
-// 		model.BinaryType:  binaryType,
-// 	}
-// )
+	// domainToDBValueTypeMap = map[model.ValueType]string{
+	// 	model.StringType:  stringType,
+	// 	model.BoolType:    boolType,
+	// 	model.Int64Type:   int64Type,
+	// 	model.Float64Type: float64Type,
+	// 	model.BinaryType:  binaryType,
+	// }
+)
 
 // FromDomain converts a domain model.LogRecord to a database LogRecord
 func FromDomain(span *model.LogRecord) *LogRecord {
@@ -59,212 +64,146 @@ func ToDomain(dbSpan *LogRecord) (*model.LogRecord, error) {
 type converter struct{}
 
 func (c converter) fromDomain(log *model.LogRecord) *LogRecord {
-	// tags := c.toDBTags(span.Tags)
-	// warnings := c.toDBWarnings(span.Warnings)
-	// logs := c.toDBLogs(span.Logs)
-	// refs := c.toDBRefs(span.References)
-	// udtProcess := c.toDBProcess(span.Process)
-	// spanHash, _ := model.HashCode(span)
-
-	// tags = append(tags, warnings...)
+	attributes := c.toDBAttributes(log.Attributes)
+	process := c.toDBProcess(log.Process)
 
 	return &LogRecord{
 		TimeUnixNano:           log.TimeUnixNano,
 		ObservedTimeUnixNano:   log.ObservedTimeUnixNano,
-		SeverityNumber:         log.SeverityNumber,
+		SeverityNumber:         uint32(log.SeverityNumber.Number()),
 		SeverityText:           log.SeverityText,
 		Body:                   log.Body,
-		Attributes:             log.Attributes,
+		Attributes:             attributes,
 		DroppedAttributesCount: log.DroppedAttributesCount,
 		Flags:                  log.Flags,
 		TraceId:                log.TraceId,
 		SpanId:                 log.SpanId,
-		Process: log.Process,
+		Process:                process,
 	}
 }
 
 func (c converter) toDomain(log *LogRecord) (*model.LogRecord, error) {
-	// tags, err := c.fromDBTags(dbSpan.Tags)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// warnings, err := c.fromDBWarnings(dbSpan.Tags)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// logs, err := c.fromDBLogs(dbSpan.Logs)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// refs, err := c.fromDBRefs(dbSpan.Refs)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// process, err := c.fromDBProcess(dbSpan.Process)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// traceID := dbSpan.TraceID.ToDomain()
+	attributes, err := c.fromDBAttrinutes(log.Attributes)
+	if err != nil {
+		return nil, err
+	}
+	process, err := c.fromDBProcess(log.Process)
+	if err != nil {
+		return nil, err
+	}
 	span := &model.LogRecord{
 		TimeUnixNano:           log.TimeUnixNano,
 		ObservedTimeUnixNano:   log.ObservedTimeUnixNano,
-		SeverityNumber:         log.SeverityNumber,
+		SeverityNumber:         logs.SeverityNumber(log.SeverityNumber),
 		SeverityText:           log.SeverityText,
 		Body:                   log.Body,
-		Attributes:             log.Attributes,
+		Attributes:             attributes,
 		DroppedAttributesCount: log.DroppedAttributesCount,
 		Flags:                  log.Flags,
 		TraceId:                log.TraceId,
 		SpanId:                 log.SpanId,
-		Process: log.Process,
+		Process:                process,
 	}
 	return span, nil
 }
 
-// func (c converter) fromDBTags(tags []KeyValue) ([]model.KeyValue, error) {
-// 	retMe := make([]model.KeyValue, 0, len(tags))
-// 	for i := range tags {
-// 		if strings.HasPrefix(tags[i].Key, warningStringPrefix) {
-// 			continue
-// 		}
-// 		kv, err := c.fromDBTag(&tags[i])
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		retMe = append(retMe, kv)
-// 	}
-// 	return retMe, nil
-// }
+func (c converter) fromDBAttrinutes(tags []KeyValue) ([]model.KeyValue, error) {
+	retMe := make([]model.KeyValue, 0, len(tags))
+	for i := range tags {
+		kv, err := c.fromDBAttribute(&tags[i])
+		if err != nil {
+			return nil, err
+		}
+		retMe = append(retMe, kv)
+	}
+	return retMe, nil
+}
 
-// func (c converter) fromDBWarnings(tags []KeyValue) ([]string, error) {
-// 	var retMe []string
-// 	for _, tag := range tags {
-// 		if !strings.HasPrefix(tag.Key, warningStringPrefix) {
-// 			continue
-// 		}
-// 		kv, err := c.fromDBTag(&tag)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		retMe = append(retMe, kv.VStr)
-// 	}
-// 	return retMe, nil
-// }
+func (c converter) fromDBAttribute(attribute *KeyValue) (model.KeyValue, error) {
+	switch attribute.ValueType {
+	case stringType:
+		return model.KeyValue{
+			Key: attribute.Key,
+			Value: &common.AnyValue{
+				Value: &common.AnyValue_StringValue{
+					StringValue: attribute.ValueString,
+				},
+			},
+		}, nil
+	case boolType:
+		return model.KeyValue{
+			Key: attribute.Key,
+			Value: &common.AnyValue{
+				Value: &common.AnyValue_BoolValue{
+					BoolValue: attribute.ValueBool,
+				},
+			},
+		}, nil
+	case int64Type:
+		return model.KeyValue{
+			Key: attribute.Key,
+			Value: &common.AnyValue{
+				Value: &common.AnyValue_IntValue{
+					IntValue: attribute.ValueInt64,
+				},
+			},
+		}, nil
+	case float64Type:
+		return model.KeyValue{
+			Key: attribute.Key,
+			Value: &common.AnyValue{
+				Value: &common.AnyValue_DoubleValue{
+					DoubleValue: attribute.ValueFloat64,
+				},
+			},
+		}, nil
+	case binaryType:
+		return model.KeyValue{
+			Key: attribute.Key,
+			Value: &common.AnyValue{
+				Value: &common.AnyValue_BytesValue{
+					BytesValue: attribute.ValueBinary,
+				},
+			},
+		}, nil
+	}
+	return model.KeyValue{}, fmt.Errorf("invalid ValueType in %+v", attribute)
+}
 
-// func (c converter) fromDBTag(tag *KeyValue) (model.KeyValue, error) {
-// 	switch tag.ValueType {
-// 	case stringType:
-// 		return model.String(tag.Key, tag.ValueString), nil
-// 	case boolType:
-// 		return model.Bool(tag.Key, tag.ValueBool), nil
-// 	case int64Type:
-// 		return model.Int64(tag.Key, tag.ValueInt64), nil
-// 	case float64Type:
-// 		return model.Float64(tag.Key, tag.ValueFloat64), nil
-// 	case binaryType:
-// 		return model.Binary(tag.Key, tag.ValueBinary), nil
-// 	}
-// 	return model.KeyValue{}, fmt.Errorf("invalid ValueType in %+v", tag)
-// }
 
-// func (c converter) fromDBLogs(logs []Log) ([]model.Log, error) {
-// 	retMe := make([]model.Log, len(logs))
-// 	for i, l := range logs {
-// 		fields, err := c.fromDBTags(l.Fields)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		retMe[i] = model.Log{
-// 			Timestamp: model.EpochMicrosecondsAsTime(uint64(l.Timestamp)),
-// 			Fields:    fields,
-// 		}
-// 	}
-// 	return retMe, nil
-// }
 
-// func (c converter) fromDBRefs(refs []SpanRef) ([]model.LogRecordRef, error) {
-// 	retMe := make([]model.LogRecordRef, len(refs))
-// 	for i, r := range refs {
-// 		refType, ok := dbToDomainRefMap[r.RefType]
-// 		if !ok {
-// 			return nil, fmt.Errorf("invalid SpanRefType in %+v", r)
-// 		}
-// 		retMe[i] = model.LogRecordRef{
-// 			RefType: refType,
-// 			TraceID: r.TraceID.ToDomain(),
-// 			SpanID:  model.NewSpanID(uint64(r.SpanID)),
-// 		}
-// 	}
-// 	return retMe, nil
-// }
+func (c converter) fromDBProcess(process Process) (*model.Process, error) {
+	attributes, err := c.fromDBAttrinutes(process.Atributtes)
+	if err != nil {
+		return nil, err
+	}
+	return &model.Process{
+		Attributes:        attributes,
+		ServiceName: process.ServiceName,
+	}, nil
+}
 
-// func (c converter) fromDBProcess(process Process) (*model.Process, error) {
-// 	tags, err := c.fromDBTags(process.Tags)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &model.Process{
-// 		Tags:        tags,
-// 		ServiceName: process.ServiceName,
-// 	}, nil
-// }
+func (c converter) toDBAttributes(attributes []model.KeyValue) []KeyValue {
+	retMe := make([]KeyValue, len(attributes))
+	for i, t := range attributes {
+		// do we want to validate a jaeger tag here? Making sure that the type and value matches up?
+		retMe[i] = KeyValue{
+			Key:          t.Key,
+			ValueType:    t.GetTypeValues(),
+			ValueString:  t.Value.GetStringValue(),
+			ValueBool:    t.Value.GetBoolValue(),
+			ValueInt64:   t.Value.GetIntValue(),
+			ValueFloat64: t.Value.GetDoubleValue(),
+			ValueBinary:  t.Value.GetBytesValue(),
+		}
+	}
+	return retMe
+}
 
-// func (c converter) toDBTags(tags []model.KeyValue) []KeyValue {
-// 	retMe := make([]KeyValue, len(tags))
-// 	for i, t := range tags {
-// 		// do we want to validate a jaeger tag here? Making sure that the type and value matches up?
-// 		retMe[i] = KeyValue{
-// 			Key:          t.Key,
-// 			ValueType:    domainToDBValueTypeMap[t.VType],
-// 			ValueString:  t.VStr,
-// 			ValueBool:    t.Bool(),
-// 			ValueInt64:   t.Int64(),
-// 			ValueFloat64: t.Float64(),
-// 			ValueBinary:  t.Binary(),
-// 		}
-// 	}
-// 	return retMe
-// }
 
-// func (c converter) toDBWarnings(warnings []string) []KeyValue {
-// 	retMe := make([]KeyValue, len(warnings))
-// 	for i, w := range warnings {
-// 		kv := model.String(fmt.Sprintf("%s%d", warningStringPrefix, i+1), w)
-// 		retMe[i] = KeyValue{
-// 			Key:         kv.Key,
-// 			ValueType:   domainToDBValueTypeMap[kv.VType],
-// 			ValueString: kv.VStr,
-// 		}
-// 	}
-// 	return retMe
-// }
-
-// func (c converter) toDBLogs(logs []model.Log) []Log {
-// 	retMe := make([]Log, len(logs))
-// 	for i, l := range logs {
-// 		retMe[i] = Log{
-// 			Timestamp: int64(model.TimeAsEpochMicroseconds(l.Timestamp)),
-// 			Fields:    c.toDBTags(l.Fields),
-// 		}
-// 	}
-// 	return retMe
-// }
-
-// func (c converter) toDBRefs(refs []model.LogRecordRef) []SpanRef {
-// 	retMe := make([]SpanRef, len(refs))
-// 	for i, r := range refs {
-// 		retMe[i] = SpanRef{
-// 			TraceID: TraceIDFromDomain(r.TraceID),
-// 			SpanID:  int64(r.SpanID),
-// 			RefType: domainToDBRefMap[r.RefType],
-// 		}
-// 	}
-// 	return retMe
-// }
-
-// func (c converter) toDBProcess(process *model.Process) Process {
-// 	return Process{
-// 		ServiceName: process.ServiceName,
-// 		Tags:        c.toDBTags(process.Tags),
-// 	}
-// }
+func (c converter) toDBProcess(process *model.Process) Process {
+	return Process{
+		ServiceName: process.ServiceName,
+		Atributtes:        c.toDBAttributes(process.Attributes),
+	}
+}

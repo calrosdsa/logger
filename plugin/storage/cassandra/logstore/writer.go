@@ -20,8 +20,8 @@ import (
 const (
 	insertLog = `
 		INSERT
-		INTO logs(time_unix_nano,flags,observed_time_unix_nano,attributes,process)
-		VALUES (?, ?, ?,?,?)`
+		INTO logs(time_unix_nano,severity_number,body,observed_time_unix_nano,attributes,process)
+		VALUES (?, ?, ?,?,?,?)`
 
 	serviceNameIndex = `
 		INSERT
@@ -58,8 +58,8 @@ const (
 )
 
 type (
-	storageMode          uint8
-	serviceNamesWriter   func(serviceName string) error
+	storageMode        uint8
+	serviceNamesWriter func(serviceName string) error
 	// operationNamesWriter func(operation dbmodel.Operation) error
 )
 
@@ -73,11 +73,11 @@ type spanWriterMetrics struct {
 
 // LogWriter handles all writes to Cassandra for the Jaeger data model
 type LogWriter struct {
-	session              cassandra.Session
-	serviceNamesWriter   serviceNamesWriter
+	session            cassandra.Session
+	serviceNamesWriter serviceNamesWriter
 	// operationNamesWriter operationNamesWriter
-	writerMetrics        spanWriterMetrics
-	logger               *zap.Logger
+	writerMetrics spanWriterMetrics
+	logger        *zap.Logger
 	// tagIndexSkipped      metrics.Counter
 	// tagFilter            dbmodel.TagFilter
 	storageMode storageMode
@@ -97,8 +97,8 @@ func NewLogWriter(
 	// tagIndexSkipped := metricsFactory.Counter(metrics.Options{Name: "tag_index_skipped", Tags: nil})
 	opts := applyOptions(options...)
 	return &LogWriter{
-		session:              session,
-		serviceNamesWriter:   serviceNamesStorage.Write,
+		session:            session,
+		serviceNamesWriter: serviceNamesStorage.Write,
 		// operationNamesWriter: operationNamesStorage.Write,
 		writerMetrics: spanWriterMetrics{
 			traces:                casMetrics.NewTable(metricsFactory, "traces"),
@@ -107,7 +107,7 @@ func NewLogWriter(
 			serviceOperationIndex: casMetrics.NewTable(metricsFactory, "service_operation_index"),
 			durationIndex:         casMetrics.NewTable(metricsFactory, "duration_index"),
 		},
-		logger:          logger,
+		logger: logger,
 		// tagIndexSkipped: tagIndexSkipped,
 		// tagFilter:       opts.tagFilter,
 		storageMode: opts.storageMode,
@@ -138,26 +138,27 @@ func (s *LogWriter) WriteLog(ctx context.Context, span *model.LogRecord) error {
 }
 
 func (s *LogWriter) writeSpan(log *model.LogRecord, ds *dbmodel.LogRecord) error {
-	fmt.Println("WRITE SPAN",log)
-	attributes := []dbmodel.KeyValue{
-		dbmodel.KeyValue{
-			Key: "name",
-			ValueType: "string",
-			ValueString: "value",
-		},
-	}
-	process := dbmodel.Process{
-		ServiceName: "logger.service",
-		Atributtes: attributes,
-	}
+	fmt.Println("WRITE SPAN", log, "----DS---", ds)
+	// attributes := []dbmodel.KeyValue{
+	// 	{
+	// 		Key: "name",
+	// 		ValueType: "string",
+	// 		ValueString: "value",
+	// 	},
+	// }
+	// process := dbmodel.Process{
+	// 	ServiceName: "logger.service",
+	// 	Atributtes: attributes,
+	// }
 
 	mainQuery := s.session.Query(
 		insertLog,
-		log.TimeUnixNano,
-		log.Flags,
-		log.ObservedTimeUnixNano,
-		attributes,
-		process,
+		ds.TimeUnixNano,
+		ds.SeverityNumber,
+		ds.Body,
+		ds.ObservedTimeUnixNano,
+		ds.Attributes,
+		ds.Process,
 		// log.Process,
 	)
 	// mainQuery := s.session.Query(

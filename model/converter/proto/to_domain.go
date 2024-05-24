@@ -3,6 +3,7 @@ package proto
 import (
 	"logger/model"
 	pbL "logger/model/proto/logs/v1"
+	common "logger/model/proto/common/v1"
 )
 
 func ToDomainLog(log *pbL.LogRecord, processs *model.Process) *model.LogRecord {
@@ -21,12 +22,23 @@ func (t toDomain) transformToLog(log *pbL.LogRecord, process *model.Process) *mo
 		ObservedTimeUnixNano:   log.GetObservedTimeUnixNano(),
 		SeverityNumber:         log.GetSeverityNumber(),
 		SeverityText:           log.GetSeverityText(),
-		Body:                   log.GetBody(),
-		Attributes:             log.GetAttributes(),
+		Body:                   log.GetBody().GetStringValue(),
+		Attributes:             t.toDomainAtrributes(log.Attributes),
 		DroppedAttributesCount: log.GetDroppedAttributesCount(),
 		Flags:                  log.GetFlags(),
 		TraceId:                log.GetTraceId(),
 		SpanId:                 log.GetSpanId(),
 		Process: process,
 	}
+}
+
+func (t toDomain)toDomainAtrributes(attributes []*common.KeyValue)[]model.KeyValue{
+	res := make([]model.KeyValue,len(attributes))
+	for _,v:= range attributes {
+		res = append(res, model.KeyValue{
+			Key: v.Key,
+			Value: v.Value,
+		})
+	}
+	return res
 }

@@ -95,7 +95,8 @@ func (f *Factory) Close() error {
 }
 
 func (f *Factory) CreateLogReader() (ls.Reader, error) {
-	return nil, nil
+	fmt.Println("CREATING LOG READER")
+	return cLogStore.NewLogReader(f.primarySession,f.logger),nil
 }
 func (f *Factory) CreateLogWriter() (ls.Writer, error) {
 	fmt.Println("CRATEING LOG WRITER CASSANDRA")
