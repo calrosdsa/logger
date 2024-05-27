@@ -42,8 +42,9 @@ type LogRecord struct {
 	Flags                  uint32
 	TraceId                []byte
 	SpanId                 []byte
-	ServiceName  string
-	ServiceAttributes             []KeyValue 
+	ServiceName            string
+	OperationName          string
+	ServiceAttributes      []KeyValue
 
 	// Process                Process
 }
@@ -74,8 +75,8 @@ type SpanRef struct {
 
 // Process is the UDT representation of a Jaeger Process.
 type Process struct {
-	ServiceName string `cql:"service_name"`
-	Attributes []KeyValue `cql:"attributes"`
+	ServiceName string     `cql:"service_name"`
+	Attributes  []KeyValue `cql:"attributes"`
 }
 
 // TagInsertion contains the items necessary to insert a tag for a given span

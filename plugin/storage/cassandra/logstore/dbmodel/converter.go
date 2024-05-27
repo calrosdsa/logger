@@ -25,6 +25,7 @@ import (
 const (
 	// warningStringPrefix is a magic string prefix for tag names to store span warnings.
 	warningStringPrefix = "$$span.warning."
+	unknownMethod       = "unknowMethod"
 )
 
 var (
@@ -76,8 +77,9 @@ func (c converter) fromDomain(log *model.LogRecord) *LogRecord {
 		Flags:                  log.Flags,
 		TraceId:                log.TraceId,
 		SpanId:                 log.SpanId,
-		ServiceName:                process.ServiceName,
-		ServiceAttributes: process.Attributes,
+		ServiceName:            process.ServiceName,
+		ServiceAttributes:      process.Attributes,
+		OperationName:          c.getMethodNameFromAttr(log.Attributes),
 	}
 }
 
@@ -89,7 +91,7 @@ func (c converter) toDomain(log *LogRecord) (*model.LogRecord, error) {
 	}
 	process, err := c.fromDBProcess(Process{
 		ServiceName: log.ServiceName,
-		Attributes: log.ServiceAttributes,
+		Attributes:  log.ServiceAttributes,
 	})
 	if err != nil {
 		fmt.Println("ERROR FROM DB PROCESS", err)
@@ -208,4 +210,13 @@ func (c converter) toDBProcess(process *model.Process) Process {
 		ServiceName: process.ServiceName,
 		Attributes:  c.toDBAttributes(process.Attributes),
 	}
+}
+
+func (c converter) getMethodNameFromAttr(attibutes []model.KeyValue) string {
+	for _, atrr := range attibutes {
+		if atrr.Key == "method" {
+			return atrr.Value.GetStringValue()
+		}
+	}
+	return unknownMethod
 }

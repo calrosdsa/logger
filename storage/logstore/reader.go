@@ -2,37 +2,34 @@ package logstore
 
 import (
 	"context"
-	"time"
 	"logger/model"
-
+	"time"
 )
-
-
 
 type Reader interface {
 	// GetServices(ctx context.Context) ([]string, error)
-	GetLogs(ctx context.Context) ([]*model.LogRecord,error)
+	GetLogs(ctx context.Context, p LogQueryParameters) ([]*model.LogRecord, error)
+	GetServices(ctx context.Context) ([]string, error)
+	GetOperations(ctx context.Context, p OperationQueryParameters) ([]Operation, error)
 }
 
 // LogQueryParameters contains parameters of a log query.
-type TraceQueryParameters struct {
-	ServiceName   string
-	OperationName string
+type LogQueryParameters struct {
+	ServiceName   string `json:"service_name"`
+	OperationName string `json:"operation_name"`
 	// Tags          map[string]string
-	StartTimeMin  time.Time
-	StartTimeMax  time.Time
-	NumTraces     int
+	StartTimeMin   time.Time `json:"start_time_min"`
+	StartTimeMax   time.Time `json:"start_time_max"`
+	NumTraces      int       `json:"num_traces"`
+	SeverityNumber int       `json:"severity_number"`
 }
 
 // OperationQueryParameters contains parameters of query operations, empty spanKind means get operations for all kinds of span.
 type OperationQueryParameters struct {
 	ServiceName string
-	SpanKind    string
 }
 
 // Operation contains operation name and span kind
 type Operation struct {
-	Name     string
-	SpanKind string
+	Name string
 }
-

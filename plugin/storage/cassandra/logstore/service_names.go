@@ -23,8 +23,8 @@ import (
 
 	"logger/pkg/cache"
 	"logger/pkg/cassandra"
-	casMetrics "logger/pkg/cassandra/metrics"
-	"logger/pkg/metrics"
+	// casMetrics "logger/pkg/cassandra/metrics"
+	// "logger/pkg/metrics"
 )
 
 const (
@@ -38,7 +38,7 @@ type ServiceNamesStorage struct {
 	writeCacheTTL time.Duration
 	InsertStmt    string
 	QueryStmt     string
-	metrics       *casMetrics.Table
+	// metrics       *casMetrics.Table
 	serviceNames  cache.Cache
 	logger        *zap.Logger
 }
@@ -47,14 +47,14 @@ type ServiceNamesStorage struct {
 func NewServiceNamesStorage(
 	session cassandra.Session,
 	writeCacheTTL time.Duration,
-	metricsFactory metrics.Factory,
+	// metricsFactory metrics.Factory,
 	logger *zap.Logger,
 ) *ServiceNamesStorage {
 	return &ServiceNamesStorage{
 		session:       session,
 		InsertStmt:    insertServiceName,
 		QueryStmt:     queryServiceNames,
-		metrics:       casMetrics.NewTable(metricsFactory, "service_names"),
+		// metrics:       casMetrics.NewTable(metricsFactory, "service_names"),
 		writeCacheTTL: writeCacheTTL,
 		logger:        logger,
 		serviceNames: cache.NewLRUWithOptions(
@@ -72,7 +72,7 @@ func (s *ServiceNamesStorage) Write(serviceName string) error {
 	query := s.session.Query(s.InsertStmt)
 	if inCache := checkWriteCache(serviceName, s.serviceNames, s.writeCacheTTL); !inCache {
 		q := query.Bind(serviceName)
-		err2 := s.metrics.Exec(q, s.logger)
+		err2 := q.Exec()
 		if err2 != nil {
 			err = err2
 		}

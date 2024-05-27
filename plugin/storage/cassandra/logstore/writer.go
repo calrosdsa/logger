@@ -20,8 +20,8 @@ import (
 const (
 	insertLog = `
 		INSERT
-		INTO logs(time_unix_nano,severity_number,body,observed_time_unix_nano,service_name,service_attributes,attributes)
-		VALUES (?, ?, ?,?,?,?,?)`
+		INTO logs(start_time,severity_number,body,observed_time_unix_nano,service_name,operation_name,service_attributes,attributes)
+		VALUES (?, ?, ?,?,?,?,?,?)`
 
 	serviceNameIndex = `
 		INSERT
@@ -60,7 +60,7 @@ const (
 type (
 	storageMode        uint8
 	serviceNamesWriter func(serviceName string) error
-	// operationNamesWriter func(operation dbmodel.Operation) error
+	operationNamesWriter func(operation dbmodel.Operation) error
 )
 
 type spanWriterMetrics struct {
@@ -75,7 +75,7 @@ type spanWriterMetrics struct {
 type LogWriter struct {
 	session            cassandra.Session
 	serviceNamesWriter serviceNamesWriter
-	// operationNamesWriter operationNamesWriter
+	operationNamesWriter operationNamesWriter
 	writerMetrics spanWriterMetrics
 	logger        *zap.Logger
 	// tagIndexSkipped      metrics.Counter
@@ -92,14 +92,14 @@ func NewLogWriter(
 	logger *zap.Logger,
 	options ...Option,
 ) *LogWriter {
-	serviceNamesStorage := NewServiceNamesStorage(session, writeCacheTTL, metricsFactory, logger)
-	// operationNamesStorage := NewOperationNamesStorage(session, writeCacheTTL, metricsFactory, logger)
+	serviceNamesStorage := NewServiceNamesStorage(session, writeCacheTTL, logger)
+	operationNamesStorage := NewOperationNamesStorage(session, writeCacheTTL, logger)
 	// tagIndexSkipped := metricsFactory.Counter(metrics.Options{Name: "tag_index_skipped", Tags: nil})
 	opts := applyOptions(options...)
 	return &LogWriter{
 		session:            session,
 		serviceNamesWriter: serviceNamesStorage.Write,
-		// operationNamesWriter: operationNamesStorage.Write,
+		operationNamesWriter: operationNamesStorage.Write,
 		writerMetrics: spanWriterMetrics{
 			traces:                casMetrics.NewTable(metricsFactory, "traces"),
 			tagIndex:              casMetrics.NewTable(metricsFactory, "tag_index"),
@@ -158,6 +158,7 @@ func (s *LogWriter) writeSpan(log *model.LogRecord, ds *dbmodel.LogRecord) error
 		ds.Body,
 		ds.ObservedTimeUnixNano,
 		ds.ServiceName,
+		ds.OperationName,
 		ds.ServiceAttributes,
 		ds.Attributes,
 		// log.Process,
@@ -193,14 +194,13 @@ func (s *LogWriter) writeSpan(log *model.LogRecord, ds *dbmodel.LogRecord) error
 
 func (s *LogWriter) writeIndexes(span *model.LogRecord, ds *dbmodel.LogRecord) error {
 	// spanKind, _ := span.GetSpanKind()
-	// if err := s.saveServiceNameAndOperationName(dbmodel.Operation{
-	// 	ServiceName:   ds.ServiceName,
-	// 	SpanKind:      spanKind.String(),
-	// 	OperationName: ds.OperationName,
-	// }); err != nil {
-	// 	// should this be a soft failure?
-	// 	return s.logError(ds, err, "Failed to insert service name and operation name", s.logger)
-	// }
+	if err := s.saveServiceNameAndOperationName(dbmodel.Operation{
+		ServiceName:   ds.ServiceName,
+		OperationName: ds.OperationName,
+	}); err != nil {
+		// should this be a soft failure?
+		return s.logError(ds, err, "Failed to insert service name and operation name", s.logger)
+	}
 
 	// if s.indexFilter(ds, dbmodel.ServiceIndex) {
 	// 	if err := s.indexByService(ds); err != nil {
@@ -305,9 +305,9 @@ func (s *LogWriter) logError(span *dbmodel.LogRecord, err error, msg string, log
 	return fmt.Errorf("%s: %w", msg, err)
 }
 
-// func (s *LogWriter) saveServiceNameAndOperationName(operation dbmodel.Operation) error {
-// 	if err := s.serviceNamesWriter(operation.ServiceName); err != nil {
-// 		return err
-// 	}
-// 	return s.operationNamesWriter(operation)
-// }
+func (s *LogWriter) saveServiceNameAndOperationName(operation dbmodel.Operation) error {
+	if err := s.serviceNamesWriter(operation.ServiceName); err != nil {
+		return err
+	}
+	return s.operationNamesWriter(operation)
+}

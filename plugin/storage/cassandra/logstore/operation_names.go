@@ -23,8 +23,8 @@ import (
 
 	"logger/pkg/cache"
 	"logger/pkg/cassandra"
-	casMetrics "logger/pkg/cassandra/metrics"
-	"logger/pkg/metrics"
+	// casMetrics "logger/pkg/cassandra/metrics"
+	// "logger/pkg/metrics"
 	"logger/plugin/storage/cassandra/logstore/dbmodel"
 	"logger/storage/logstore"
 )
@@ -49,7 +49,7 @@ type tableMeta struct {
 	insertStmt       string
 	queryByKindStmt  string
 	queryStmt        string
-	createWriteQuery func(query cassandra.Query, service, kind, opName string) cassandra.Query
+	createWriteQuery func(query cassandra.Query, service, opName string) cassandra.Query
 	getOperations    func(
 		s *OperationNamesStorage,
 		query logstore.OperationQueryParameters,
@@ -69,18 +69,18 @@ var schemas = map[schemaVersion]tableMeta{
 		queryByKindStmt: "SELECT operation_name FROM %s WHERE service_name = ?",
 		queryStmt:       "SELECT operation_name FROM %s WHERE service_name = ?",
 		getOperations:   getOperationsV1,
-		createWriteQuery: func(query cassandra.Query, service, kind, opName string) cassandra.Query {
+		createWriteQuery: func(query cassandra.Query, service, opName string) cassandra.Query {
 			return query.Bind(service, opName)
 		},
 	},
 	latestVersion: {
 		tableName:       "operation_names_v2",
 		insertStmt:      "INSERT INTO %s(service_name, span_kind, operation_name) VALUES (?, ?, ?)",
-		queryByKindStmt: "SELECT span_kind, operation_name FROM %s WHERE service_name = ? AND span_kind = ?",
-		queryStmt:       "SELECT span_kind, operation_name FROM %s WHERE service_name = ?",
+		queryByKindStmt: "SELECT operation_name FROM %s WHERE service_name = ?",
+		queryStmt:       "SELECT operation_name FROM %s WHERE service_name = ?",
 		getOperations:   getOperationsV2,
-		createWriteQuery: func(query cassandra.Query, service, kind, opName string) cassandra.Query {
-			return query.Bind(service, kind, opName)
+		createWriteQuery: func(query cassandra.Query, service, opName string) cassandra.Query {
+			return query.Bind(service, opName)
 		},
 	},
 }
@@ -92,7 +92,7 @@ type OperationNamesStorage struct {
 	table          tableMeta
 	session        cassandra.Session
 	writeCacheTTL  time.Duration
-	metrics        *casMetrics.Table
+	// metrics        *casMetrics.Table
 	operationNames cache.Cache
 	logger         *zap.Logger
 }
@@ -101,7 +101,7 @@ type OperationNamesStorage struct {
 func NewOperationNamesStorage(
 	session cassandra.Session,
 	writeCacheTTL time.Duration,
-	metricsFactory metrics.Factory,
+	// metricsFactory metrics.Factory,
 	logger *zap.Logger,
 ) *OperationNamesStorage {
 	schemaVersion := latestVersion
@@ -115,7 +115,7 @@ func NewOperationNamesStorage(
 		session:       session,
 		schemaVersion: schemaVersion,
 		table:         table,
-		metrics:       casMetrics.NewTable(metricsFactory, schemas[schemaVersion].tableName),
+		// metrics:       casMetrics.NewTable(metricsFactory, schemas[schemaVersion].tableName),
 		writeCacheTTL: writeCacheTTL,
 		logger:        logger,
 		operationNames: cache.NewLRUWithOptions(
@@ -129,19 +129,19 @@ func NewOperationNamesStorage(
 
 // Write saves Operation and Service name tuples
 func (s *OperationNamesStorage) Write(operation dbmodel.Operation) error {
-	key := fmt.Sprintf("%s|%s|%s",
+	key := fmt.Sprintf("%s|%s",
 		operation.ServiceName,
-		operation.SpanKind,
+		// operation.SpanKind,
 		operation.OperationName,
 	)
 	if inCache := checkWriteCache(key, s.operationNames, s.writeCacheTTL); !inCache {
 		q := s.table.createWriteQuery(
 			s.session.Query(s.table.insertStmt),
 			operation.ServiceName,
-			operation.SpanKind,
+			// operation.SpanKind,
 			operation.OperationName,
 		)
-		err := s.metrics.Exec(q, s.logger)
+		err := q.Exec()
 		if err != nil {
 			return err
 		}
@@ -188,13 +188,13 @@ func getOperationsV2(
 	query logstore.OperationQueryParameters,
 ) ([]logstore.Operation, error) {
 	var casQuery cassandra.Query
-	if query.SpanKind == "" {
+	// if query.SpanKind == "" {
 		// Get operations for all spanKind
 		casQuery = s.session.Query(s.table.queryStmt, query.ServiceName)
-	} else {
+	// } else {
 		// Get operations for given spanKind
-		casQuery = s.session.Query(s.table.queryByKindStmt, query.ServiceName, query.SpanKind)
-	}
+		// casQuery = s.session.Query(s.table.queryByKindStmt, query.ServiceName, query.SpanKind)
+	// }
 	iter := casQuery.Iter()
 
 	var operationName string
@@ -203,7 +203,7 @@ func getOperationsV2(
 	for iter.Scan(&spanKind, &operationName) {
 		operations = append(operations, logstore.Operation{
 			Name:     operationName,
-			SpanKind: spanKind,
+			// SpanKind: spanKind,
 		})
 	}
 	if err := iter.Close(); err != nil {
