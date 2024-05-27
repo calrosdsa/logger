@@ -5,9 +5,17 @@ import (
 	logs "logger/model/proto/logs/v1"
 )
 
+const (
+	STRING_TYPE  = "string"
+	BOOL_TYPE    = "bool"
+	INT64_TYPE   = "int64"
+	FLOAT64_TYPE = "float64"
+	BINARY_TYPE  = "binary"
+)
+
 type Process struct {
 	ServiceName string     `protobuf:"bytes,1,opt,name=service_name,json=serviceName,proto3" json:"service_name,omitempty"`
-	Attributes  []KeyValue `protobuf:"bytes,2,rep,name=tags,proto3" json:"tags"`
+	Attributes  []KeyValue `protobuf:"bytes,2,rep,name=attributes,proto3" json:"attributes"`
 }
 
 type ValueType int32
@@ -26,7 +34,7 @@ type KeyValue struct {
 }
 
 func (k *KeyValue) GetTypeValues() string {
-	return "STRING"
+	return STRING_TYPE
 }
 
 func (k *KeyValue) ToKeyValueDomain(v *common.KeyValue) {
@@ -61,5 +69,5 @@ type LogRecord struct {
 	Flags                  uint32     `protobuf:"fixed32,8,opt,name=flags,proto3" json:"flags,omitempty"`
 	TraceId                []byte     `protobuf:"bytes,9,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
 	SpanId                 []byte     `protobuf:"bytes,10,opt,name=span_id,json=spanId,proto3" json:"span_id,omitempty"`
-	Process                *Process
+	Process                *Process `json:"process"`
 }

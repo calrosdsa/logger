@@ -18,19 +18,12 @@ package dbmodel
 import (
 	"bytes"
 	// "encoding/binary"
-
 	// logs "logger/model/proto/logs/v1"
 )
 
 const (
 	childOf     = "child-of"
 	followsFrom = "follows-from"
-
-	stringType  = "string"
-	boolType    = "bool"
-	int64Type   = "int64"
-	float64Type = "float64"
-	binaryType  = "binary"
 )
 
 // TraceID is a serializable form of model.TraceID
@@ -39,17 +32,20 @@ type TraceID [16]byte
 // Span is the database representation of a span.
 
 type LogRecord struct {
-	TimeUnixNano           uint64              `protobuf:"fixed64,1,opt,name=time_unix_nano,json=timeUnixNano,proto3" json:"time_unix_nano,omitempty"`
-	ObservedTimeUnixNano   uint64              `protobuf:"fixed64,11,opt,name=observed_time_unix_nano,json=observedTimeUnixNano,proto3" json:"observed_time_unix_nano,omitempty"`
-	SeverityNumber         uint32 
-	SeverityText           string              `protobuf:"bytes,3,opt,name=severity_text,json=severityText,proto3" json:"severity_text,omitempty"`
-	Body                   string              `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
-	Attributes             []KeyValue          `protobuf:"bytes,6,rep,name=attributes,proto3" json:"attributes,omitempty"`
-	DroppedAttributesCount uint32              `protobuf:"varint,7,opt,name=dropped_attributes_count,json=droppedAttributesCount,proto3" json:"dropped_attributes_count,omitempty"`
-	Flags                  uint32              `protobuf:"fixed32,8,opt,name=flags,proto3" json:"flags,omitempty"`
-	TraceId                []byte              `protobuf:"bytes,9,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
-	SpanId                 []byte              `protobuf:"bytes,10,opt,name=span_id,json=spanId,proto3" json:"span_id,omitempty"`
-	Process                Process
+	TimeUnixNano           uint64
+	ObservedTimeUnixNano   uint64
+	SeverityNumber         uint32
+	SeverityText           string
+	Body                   string
+	Attributes             []KeyValue `cql:"attributes"`
+	DroppedAttributesCount uint32
+	Flags                  uint32
+	TraceId                []byte
+	SpanId                 []byte
+	ServiceName  string
+	ServiceAttributes             []KeyValue 
+
+	// Process                Process
 }
 
 // KeyValue is the UDT representation of a Jaeger KeyValue.
@@ -78,8 +74,8 @@ type SpanRef struct {
 
 // Process is the UDT representation of a Jaeger Process.
 type Process struct {
-	ServiceName string     `cql:"service_name"`
-	Atributtes  []KeyValue `cql:"attributes"`
+	ServiceName string `cql:"service_name"`
+	Attributes []KeyValue `cql:"attributes"`
 }
 
 // TagInsertion contains the items necessary to insert a tag for a given span

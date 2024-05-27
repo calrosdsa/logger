@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"go.opentelemetry.io/collector/receiver"
+	// "go.opentelemetry.io/collector/receiver"
 	"go.uber.org/zap"
 
 	"logger/cmd/collector/app/flags"
@@ -43,7 +43,7 @@ type Collector struct {
 	// state, read only
 	hServer                    *http.Server
 	// grpcServer                 *grpc.Server
-	otlpReceiver               receiver.Traces
+	// otlpReceiver               receiver.Traces
 	// zipkinReceiver             receiver.Traces
 	// tlsGRPCCertWatcherCloser   io.Closer
 	tlsHTTPCertWatcherCloser   io.Closer
@@ -172,13 +172,13 @@ func (c *Collector) Close() error {
 	
 
 	// Stop OpenTelemetry OTLP receiver
-	if c.otlpReceiver != nil {
-		timeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		if err := c.otlpReceiver.Shutdown(timeout); err != nil {
-			c.logger.Fatal("failed to stop the OTLP receiver", zap.Error(err))
-		}
-		defer cancel()
-	}
+	// if c.otlpReceiver != nil {
+	// 	timeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// 	if err := c.otlpReceiver.Shutdown(timeout); err != nil {
+	// 		c.logger.Fatal("failed to stop the OTLP receiver", zap.Error(err))
+	// 	}
+	// 	defer cancel()
+	// }
 
 	if err := c.logProcessor.Close(); err != nil {
 		c.logger.Error("failed to close span processor.", zap.Error(err))

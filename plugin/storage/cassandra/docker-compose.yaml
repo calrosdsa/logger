@@ -2,10 +2,10 @@ version: '3'
 
 services:
     migrate:
-      image: jmiranda0521/cassandra:3.0
+      image: jmiranda0521/cassandra:1.0
       environment:
         - CASSANDRA_USERNAME=cassandra
         - CASSANDRA_PASSWORD=cassandra
         - KEYSPACE=loggerdb
         - MODE=prod
-        - CQLSH_HOST=172.20.20.111
+        - CQLSH_HOST=172.20.96.1

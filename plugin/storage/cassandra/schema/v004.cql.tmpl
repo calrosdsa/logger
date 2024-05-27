@@ -46,8 +46,8 @@ CREATE TABLE IF NOT EXISTS ${keyspace}.logs (
     time_unix_nano      bigint, -- microseconds since epoch
     observed_time_unix_nano        bigint, -- microseconds
     attributes            list<frozen<attribute>>,
-
-    process         frozen<process>,
+    service_name text,
+    service_attributes list<frozen<attribute>>,
     PRIMARY KEY (time_unix_nano,severity_number)
 )
     WITH compaction = {

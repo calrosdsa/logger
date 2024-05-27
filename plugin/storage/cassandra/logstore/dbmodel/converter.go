@@ -20,8 +20,6 @@ import (
 	"logger/model"
 	common "logger/model/proto/common/v1"
 	logs "logger/model/proto/logs/v1"
-
-
 )
 
 const (
@@ -30,23 +28,23 @@ const (
 )
 
 var (
-	// 	dbToDomainRefMap = map[string]model.LogRecordRefType{
-	// 		childOf:     model.LogRecordRefType_CHILD_OF,
-	// 		followsFrom: model.LogRecordRefType_FOLLOWS_FROM,
-	// 	}
+// 	dbToDomainRefMap = map[string]model.LogRecordRefType{
+// 		childOf:     model.LogRecordRefType_CHILD_OF,
+// 		followsFrom: model.LogRecordRefType_FOLLOWS_FROM,
+// 	}
 
-	// 	domainToDBRefMap = map[model.LogRecordRefType]string{
-	// 		model.LogRecordRefType_CHILD_OF:     childOf,
-	// 		model.LogRecordRefType_FOLLOWS_FROM: followsFrom,
-	// 	}
+// 	domainToDBRefMap = map[model.LogRecordRefType]string{
+// 		model.LogRecordRefType_CHILD_OF:     childOf,
+// 		model.LogRecordRefType_FOLLOWS_FROM: followsFrom,
+// 	}
 
-	// domainToDBValueTypeMap = map[model.ValueType]string{
-	// 	model.StringType:  stringType,
-	// 	model.BoolType:    boolType,
-	// 	model.Int64Type:   int64Type,
-	// 	model.Float64Type: float64Type,
-	// 	model.BinaryType:  binaryType,
-	// }
+//	domainToDBValueTypeMap = map[model.ValueType]string{
+//		model.StringType:  stringType,
+//		model.BoolType:    boolType,
+//		model.Int64Type:   int64Type,
+//		model.Float64Type: float64Type,
+//		model.BinaryType:  binaryType,
+//	}
 )
 
 // FromDomain converts a domain model.LogRecord to a database LogRecord
@@ -78,17 +76,23 @@ func (c converter) fromDomain(log *model.LogRecord) *LogRecord {
 		Flags:                  log.Flags,
 		TraceId:                log.TraceId,
 		SpanId:                 log.SpanId,
-		Process:                process,
+		ServiceName:                process.ServiceName,
+		ServiceAttributes: process.Attributes,
 	}
 }
 
 func (c converter) toDomain(log *LogRecord) (*model.LogRecord, error) {
 	attributes, err := c.fromDBAttrinutes(log.Attributes)
 	if err != nil {
+		fmt.Println("ERROR FROM DB ATTRIBUTES", err)
 		return nil, err
 	}
-	process, err := c.fromDBProcess(log.Process)
+	process, err := c.fromDBProcess(Process{
+		ServiceName: log.ServiceName,
+		Attributes: log.ServiceAttributes,
+	})
 	if err != nil {
+		fmt.Println("ERROR FROM DB PROCESS", err)
 		return nil, err
 	}
 	span := &model.LogRecord{
@@ -107,21 +111,21 @@ func (c converter) toDomain(log *LogRecord) (*model.LogRecord, error) {
 	return span, nil
 }
 
-func (c converter) fromDBAttrinutes(tags []KeyValue) ([]model.KeyValue, error) {
-	retMe := make([]model.KeyValue, 0, len(tags))
-	for i := range tags {
-		kv, err := c.fromDBAttribute(&tags[i])
+func (c converter) fromDBAttrinutes(attributes []KeyValue) ([]model.KeyValue, error) {
+	retMe := make([]model.KeyValue, len(attributes))
+	for i, attr := range attributes {
+		kv, err := c.fromDBAttribute(&attr)
 		if err != nil {
 			return nil, err
 		}
-		retMe = append(retMe, kv)
+		retMe[i] = kv
 	}
 	return retMe, nil
 }
 
 func (c converter) fromDBAttribute(attribute *KeyValue) (model.KeyValue, error) {
 	switch attribute.ValueType {
-	case stringType:
+	case model.STRING_TYPE:
 		return model.KeyValue{
 			Key: attribute.Key,
 			Value: &common.AnyValue{
@@ -130,7 +134,7 @@ func (c converter) fromDBAttribute(attribute *KeyValue) (model.KeyValue, error) 
 				},
 			},
 		}, nil
-	case boolType:
+	case model.BOOL_TYPE:
 		return model.KeyValue{
 			Key: attribute.Key,
 			Value: &common.AnyValue{
@@ -139,7 +143,7 @@ func (c converter) fromDBAttribute(attribute *KeyValue) (model.KeyValue, error) 
 				},
 			},
 		}, nil
-	case int64Type:
+	case model.INT64_TYPE:
 		return model.KeyValue{
 			Key: attribute.Key,
 			Value: &common.AnyValue{
@@ -148,7 +152,7 @@ func (c converter) fromDBAttribute(attribute *KeyValue) (model.KeyValue, error) 
 				},
 			},
 		}, nil
-	case float64Type:
+	case model.FLOAT64_TYPE:
 		return model.KeyValue{
 			Key: attribute.Key,
 			Value: &common.AnyValue{
@@ -157,7 +161,7 @@ func (c converter) fromDBAttribute(attribute *KeyValue) (model.KeyValue, error) 
 				},
 			},
 		}, nil
-	case binaryType:
+	case model.BINARY_TYPE:
 		return model.KeyValue{
 			Key: attribute.Key,
 			Value: &common.AnyValue{
@@ -170,20 +174,19 @@ func (c converter) fromDBAttribute(attribute *KeyValue) (model.KeyValue, error) 
 	return model.KeyValue{}, fmt.Errorf("invalid ValueType in %+v", attribute)
 }
 
-
-
 func (c converter) fromDBProcess(process Process) (*model.Process, error) {
-	attributes, err := c.fromDBAttrinutes(process.Atributtes)
+	attributes, err := c.fromDBAttrinutes(process.Attributes)
 	if err != nil {
 		return nil, err
 	}
 	return &model.Process{
-		Attributes:        attributes,
+		Attributes:  attributes,
 		ServiceName: process.ServiceName,
 	}, nil
 }
 
 func (c converter) toDBAttributes(attributes []model.KeyValue) []KeyValue {
+	fmt.Println("LEN ATTR", len(attributes))
 	retMe := make([]KeyValue, len(attributes))
 	for i, t := range attributes {
 		// do we want to validate a jaeger tag here? Making sure that the type and value matches up?
@@ -200,10 +203,9 @@ func (c converter) toDBAttributes(attributes []model.KeyValue) []KeyValue {
 	return retMe
 }
 
-
 func (c converter) toDBProcess(process *model.Process) Process {
 	return Process{
 		ServiceName: process.ServiceName,
-		Atributtes:        c.toDBAttributes(process.Attributes),
+		Attributes:  c.toDBAttributes(process.Attributes),
 	}
 }

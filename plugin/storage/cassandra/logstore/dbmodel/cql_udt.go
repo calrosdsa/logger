@@ -141,7 +141,7 @@ func (p *Process) MarshalUDT(name string, info gocql.TypeInfo) ([]byte, error) {
 	case "service_name":
 		return gocql.Marshal(info, p.ServiceName)
 	case "tags":
-		return gocql.Marshal(info, p.Atributtes)
+		return gocql.Marshal(info, p.Attributes)
 	default:
 		return nil, fmt.Errorf("unknown column for position: %q", name)
 	}
@@ -153,7 +153,7 @@ func (p *Process) UnmarshalUDT(name string, info gocql.TypeInfo, data []byte) er
 	case "service_name":
 		return gocql.Unmarshal(info, data, &p.ServiceName)
 	case "tags":
-		return gocql.Unmarshal(info, data, &p.Atributtes)
+		return gocql.Unmarshal(info, data, &p.Attributes)
 	default:
 		return fmt.Errorf("unknown column for position: %q", name)
 	}

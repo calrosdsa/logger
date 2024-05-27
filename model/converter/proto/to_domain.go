@@ -1,9 +1,10 @@
 package proto
 
 import (
+	"fmt"
 	"logger/model"
-	pbL "logger/model/proto/logs/v1"
 	common "logger/model/proto/common/v1"
+	pbL "logger/model/proto/logs/v1"
 )
 
 func ToDomainLog(log *pbL.LogRecord, processs *model.Process) *model.LogRecord {
@@ -33,12 +34,15 @@ func (t toDomain) transformToLog(log *pbL.LogRecord, process *model.Process) *mo
 }
 
 func (t toDomain)toDomainAtrributes(attributes []*common.KeyValue)[]model.KeyValue{
+	// res := make([]model.KeyValue,len(attributes))
+	fmt.Println("LEN ATTR",len(attributes))
 	res := make([]model.KeyValue,len(attributes))
-	for _,v:= range attributes {
-		res = append(res, model.KeyValue{
+	for i,v := range attributes {
+	    fmt.Println("ATTR",v)
+		res[i] = model.KeyValue{
 			Key: v.Key,
 			Value: v.Value,
-		})
+		}	
 	}
 	return res
 }

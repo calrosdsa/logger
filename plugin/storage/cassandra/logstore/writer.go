@@ -20,8 +20,8 @@ import (
 const (
 	insertLog = `
 		INSERT
-		INTO logs(time_unix_nano,severity_number,body,observed_time_unix_nano,attributes,process)
-		VALUES (?, ?, ?,?,?,?)`
+		INTO logs(time_unix_nano,severity_number,body,observed_time_unix_nano,service_name,service_attributes,attributes)
+		VALUES (?, ?, ?,?,?,?,?)`
 
 	serviceNameIndex = `
 		INSERT
@@ -157,8 +157,9 @@ func (s *LogWriter) writeSpan(log *model.LogRecord, ds *dbmodel.LogRecord) error
 		ds.SeverityNumber,
 		ds.Body,
 		ds.ObservedTimeUnixNano,
+		ds.ServiceName,
+		ds.ServiceAttributes,
 		ds.Attributes,
-		ds.Process,
 		// log.Process,
 	)
 	// mainQuery := s.session.Query(
