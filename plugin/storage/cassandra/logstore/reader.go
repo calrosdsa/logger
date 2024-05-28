@@ -2,6 +2,7 @@ package logstore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"logger/pkg/cassandra"
 	"logger/plugin/storage/cassandra/logstore/dbmodel"
@@ -15,9 +16,30 @@ import (
 // attributes
 const (
 	queryLogs = `SELECT severity_number,body, start_time, observed_time_unix_nano,service_name,operation_name,service_attributes,attributes
-	FROM logs where service_name = ? and operation_name = ?  AND start_time > ? AND start_time < ?`
+	FROM logs where service_name = ? and operation_name = ?  AND start_time > ? AND start_time < ? LIMIT ?`
+	defaultNumTraces = 100
 	// queryLogs = `SELECT severity_number,body, start_time, observed_time_unix_nano, attributes, process
 	// FROM logs`
+)
+
+var (
+	// ErrServiceNameNotSet occurs when attempting to query with an empty service name
+	ErrServiceNameNotSet = errors.New("service Name must be set")
+
+	// ErrOperationNameNotSet occurs when attempting to query with an empty service name
+	ErrOperationNameNotSet = errors.New("operation Name must be set")
+
+	// ErrStartTimeMinGreaterThanMax occurs when start time min is above start time max
+	ErrStartTimeMinGreaterThanMax = errors.New("start Time Minimum is above Maximum")
+
+	// ErrMalformedRequestObject occurs when a request object is nil
+	ErrMalformedRequestObject = errors.New("malformed request object")
+
+	// ErrDurationAndTagQueryNotSupported occurs when duration and tags are both set
+	// ErrDurationAndTagQueryNotSupported = errors.New("cannot query for duration and tags simultaneously")
+
+	// ErrStartAndEndTimeNotSet occurs when start time and end time are not set
+	ErrStartAndEndTimeNotSet = errors.New("start and End Time must be set")
 )
 
 type serviceNamesReader func() ([]string, error)
@@ -53,21 +75,28 @@ func (l *LogReader) GetOperations(ctx context.Context, p logstore.OperationQuery
 	return l.operationNamesReader(p)
 }
 
+
 func (l *LogReader) GetLogs(ctx context.Context, p logstore.LogQueryParameters) ([]*model.LogRecord, error) {
+
 	return l.getLogs(ctx, p)
 }
-// 1716833724638359100
-
-// 1716708050520000
 
 func (l *LogReader) getLogs(ctx context.Context, p logstore.LogQueryParameters) ([]*model.LogRecord, error) {
-	fmt.Println("TIME TO EPOCH",model.TimeAsEpochMicroseconds(p.StartTimeMin),model.TimeAsEpochMicroseconds(p.StartTimeMin))
-	q := l.session.Query(queryLogs,p.ServiceName,p.OperationName,
-	model.TimeAsEpochMicroseconds(p.StartTimeMin),
-	model.TimeAsEpochMicroseconds(p.StartTimeMax),
-)
+	if err := validateQuery(&p); err != nil {
+		return nil, err
+	}
+	if p.NumTraces == 0 {
+		p.NumTraces = defaultNumTraces
+	}
+	// query := l.buildQuery(p)
+	q := l.session.Query(queryLogs,
+		p.ServiceName,
+		p.OperationName,
+		model.TimeAsEpochMicroseconds(p.StartTimeMin),
+		model.TimeAsEpochMicroseconds(p.StartTimeMax),
+		p.NumTraces,
+	)
 	i := q.Iter()
-	// var dbProcess dbmodel.Process
 	var timeUnixNano, observedTimeUnixNano uint64
 	var severityNumber uint32
 	var body, serviceName, methodName string
@@ -84,7 +113,6 @@ func (l *LogReader) getLogs(ctx context.Context, p logstore.LogQueryParameters) 
 			ServiceAttributes:    serviceAttributes,
 			Attributes:           attributes,
 		}
-		fmt.Println("dbLog---", dbLog)
 		logModel, err := dbmodel.ToDomain(&dbLog)
 		if err != nil {
 			fmt.Println(err)
@@ -99,3 +127,40 @@ func (l *LogReader) getLogs(ctx context.Context, p logstore.LogQueryParameters) 
 	}
 	return res, nil
 }
+
+
+func validateQuery(p *logstore.LogQueryParameters) error {
+	if p == nil {
+		return ErrMalformedRequestObject
+	}
+	if p.ServiceName == "" {
+		return ErrServiceNameNotSet
+	}
+	if p.OperationName == "" {
+		return ErrOperationNameNotSet
+	}
+	if p.StartTimeMin.IsZero() || p.StartTimeMax.IsZero() {
+		return ErrStartAndEndTimeNotSet
+	}
+	if !p.StartTimeMin.IsZero() && !p.StartTimeMax.IsZero() && p.StartTimeMax.Before(p.StartTimeMin) {
+		return ErrStartTimeMinGreaterThanMax
+	}
+	return nil
+}
+
+// func (l *LogReader) buildQuery( p logstore.LogQueryParameters) string {
+// 	var partitionQuery string
+// 	// if p.ShouldFetchAll {
+// 	// 	partitionQuery = ""
+// 	// }else{
+// 	partitionQuery = fmt.Sprintf("service_name = '%s' and operation_name = '%s' and",p.ServiceName,p.OperationName)
+// 	// }
+// 	// if p.SeverityNumber != 0 {
+// 	// 	severityNumberQuery = fmt.Sprintf("and severity_number = %d",p.SeverityNumber)
+// 	// }
+// 	query := fmt.Sprintf(`SELECT severity_number,body, start_time, observed_time_unix_nano,service_name,
+// 	operation_name,service_attributes,attributes FROM logs where %s 
+// 	start_time > ? AND start_time < ? limit ?`,partitionQuery)
+// 	fmt.Println("QUERY BUILDER",query)
+// 	return query
+// }

@@ -27,9 +27,14 @@ type HttpHandler interface {
 func NewRouter() *atreugo.Atreugo {
 	config := atreugo.Config{
 		Addr:      "0.0.0.0:8001",
-		TLSEnable: false,
-	}
+		TLSEnable: false,	
+	}	
 	server := atreugo.New(config)
+	server.UseBefore(func(rc *atreugo.RequestCtx) error {
+		rc.Response.Header.Set("Access-Control-Allow-Origin", "*")
+		return rc.Next()
+	})
+
 	return server
 }
 
@@ -85,6 +90,7 @@ func (aH *APIHandler) GetOperations(c *atreugo.RequestCtx) error {
 
 func (aH *APIHandler) GetServices(c *atreugo.RequestCtx) error {
 	ctx := c.AttachedContext()
+	// c. .Header.Set("Access-Control-Allow-Origin", "*")
 	services,err := aH.queryService.GetServices(ctx)
 	if err != nil {
 		aH.logger.Error("GetServices",zap.Error(err))

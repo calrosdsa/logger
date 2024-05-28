@@ -22,14 +22,15 @@ type LogQueryParameters struct {
 	StartTimeMax   time.Time `json:"start_time_max"`
 	NumTraces      int       `json:"num_traces"`
 	SeverityNumber int       `json:"severity_number"`
+	ShouldFetchAll bool    `json:"should_fetch_all"`
 }
 
 // OperationQueryParameters contains parameters of query operations, empty spanKind means get operations for all kinds of span.
 type OperationQueryParameters struct {
-	ServiceName string
+	ServiceName string `json:"service_name"`
 }
 
 // Operation contains operation name and span kind
 type Operation struct {
-	Name string
+	Name string `json:"name"`
 }

@@ -62,7 +62,7 @@ type LogRecord struct {
 	ObservedTimeUnixNano uint64              `protobuf:"fixed64,11,opt,name=observed_time_unix_nano,json=observedTimeUnixNano,proto3" json:"observed_time_unix_nano,omitempty"`
 	SeverityNumber       logs.SeverityNumber `protobuf:"varint,2,opt,name=severity_number,json=severityNumber,proto3,enum=opentelemetry.proto.logs.v1.SeverityNumber" json:"severity_number,omitempty"`
 	SeverityText         string              `protobuf:"bytes,3,opt,name=severity_text,json=severityText,proto3" json:"severity_text,omitempty"`
-	Body                 string
+	Body                 string 
 	// Body                   *common.AnyValue    `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
 	Attributes             []KeyValue `protobuf:"bytes,6,rep,name=attributes,proto3" json:"attributes,omitempty"`
 	DroppedAttributesCount uint32     `protobuf:"varint,7,opt,name=dropped_attributes_count,json=droppedAttributesCount,proto3" json:"dropped_attributes_count,omitempty"`
